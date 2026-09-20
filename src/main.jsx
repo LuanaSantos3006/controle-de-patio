@@ -10,6 +10,19 @@ const initialDrivers = [
   { plate:'EWU1F20', name:'Edivaldo Silva', carrier:'Via Cargo', place:'Estacionamento A', status:'Aguardando', since:'09:11', minutes:9 },
 ];
 
+const docks = [
+  { id:'52', bases:['IPR'] }, { id:'53', bases:['GOS','SVM'] },
+  { id:'54', bases:['MAU'] }, { id:'55', bases:['GLS','GUA'] },
+  { id:'56', bases:['MRP','ATB'] }, { id:'57', bases:['JDP','JTT','JSS'] },
+  { id:'58', bases:['SBD','AGFI'], blocked:true },
+  { id:'59-A', bases:['GTS','MBI'] }, { id:'59-B', bases:['LBD'] },
+  { id:'60', bases:['LBD'] }, { id:'61', bases:['VLM'] },
+  { id:'62', bases:['JDS','GHO'] }, { id:'63-A', bases:['CBL','CSA'] },
+  { id:'63-B', bases:['CDR','JANI'] }, { id:'64', bases:['STD','RBI'] },
+  { id:'65', bases:['STDI'] }, { id:'66', bases:['ACM'] },
+  { id:'67', bases:['AET','BCC'] },
+];
+
 const nav = [
   ['Visão geral', LayoutDashboard], ['Motoristas', Users], ['Localizações', MapPin], ['Relatórios', BarChart3]
 ];
@@ -23,7 +36,8 @@ function Dashboard({onScan}) {
   <header className="top"><div><p className="eyebrow">OPERAÇÃO • TEMPO REAL</p><h1>Visão geral do pátio</h1><p className="sub">Acompanhe a localização e o tempo de permanência dos motoristas.</p></div><button className="primary" onClick={onScan}><QrCode size={18}/> Simular leitura</button></header>
   <section className="stats"><Stat icon={Truck} label="No pátio agora" value="18" detail="4 chegaram na última hora" tone="blue"/><Stat icon={Clock3} label="Em espera" value="7" detail="Média de 42 minutos" tone="amber"/><Stat icon={Container} label="Nas docas" value="9" detail="3 docas disponíveis" tone="cyan"/><Stat icon={CircleCheck} label="Finalizados hoje" value="24" detail="Tempo médio de 1h18" tone="green"/></section>
   <section className="grid-main"><div className="panel live"><div className="panel-head"><div><h2>Motoristas no pátio</h2><p>Atualização automática a cada leitura</p></div><div className="search"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Buscar placa ou motorista"/></div></div><div className="table-wrap"><table><thead><tr><th>MOTORISTA</th><th>LOCALIZAÇÃO ATUAL</th><th>CHEGADA</th><th>TEMPO</th><th>STATUS</th></tr></thead><tbody>{filtered.map((d,i)=><tr key={d.plate}><td><b>{d.plate}</b><span>{d.name}</span></td><td><b className="place"><MapPin size={14}/>{d.place}</b><span>{d.carrier}</span></td><td>{d.since}</td><td className={d.minutes>60?'late':''}>{d.minutes} min</td><td><span className={`pill ${d.status==='Aguardando'?'wait':'work'}`}>{d.status}</span></td></tr>)}</tbody></table></div></div>
-  <aside className="panel summary"><div className="panel-head"><div><h2>Ocupação</h2><p>Distribuição atual</p></div></div><div className="donut"><div><strong>18</strong><span>veículos</span></div></div><div className="legend"><p><i className="dot parking"/>Estacionamento <b>7</b></p><p><i className="dot dock"/>Docas <b>9</b></p><p><i className="dot moving"/>Em deslocamento <b>2</b></p></div><div className="alert"><AlertTriangle size={18}/><div><b>2 permanências acima do previsto</b><span>Verifique as placas CUA0I23 e DFG4A92.</span></div></div></aside></section>
+  <aside className="panel summary"><div className="panel-head"><div><h2>Ocupação</h2><p>Distribuição atual</p></div></div><div className="donut"><div><strong>18</strong><span>veículos</span></div></div><div className="legend"><p><i className="dot parking"/>Estacionamento <b>7</b></p><p><i className="dot dock"/>Docas <b>9</b></p><p><i className="dot moving"/>Em deslocamento <b>2</b></p></div><div className="alert"><AlertTriangle size={18}/><div><b>Doca 58 interditada</b><span>SBD e AGFI sem operação nesta posição.</span></div></div></aside></section>
+  <section className="panel dock-panel"><div className="panel-head"><div><p className="eyebrow">SP8 • GUARULHOS</p><h2>Mapa operacional das docas</h2><p>18 posições físicas • docas 52 a 67</p></div><span className="dock-count">17 disponíveis</span></div><div className="dock-grid">{docks.map(d=><article key={d.id} className={`dock-card ${d.blocked?'blocked':''}`}><div className="dock-number"><Truck size={17}/><strong>{d.id}</strong></div><div className="dock-bases">{d.bases.map(b=><span key={b}>{b}</span>)}</div><small>{d.blocked?'INTERDITADA':'DISPONÍVEL'}</small></article>)}</div><div className="conveyor"><span>Esteira / Conveyor</span></div></section>
  </>
 }
 
