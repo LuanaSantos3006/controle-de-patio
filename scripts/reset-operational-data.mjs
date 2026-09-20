@@ -1,8 +1,22 @@
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { readFile } from 'node:fs/promises';
 
 const rawCredential = process.env.FIREBASE_SERVICE_ACCOUNT;
-const scope = process.argv[2] || 'presencas';
+let scope = process.argv[2] || '';
+
+if (!scope) {
+  const command = JSON.parse(await readFile('.github/reset-command.json', 'utf8'));
+  if (command.command !== 'ZERAR') {
+    console.log('Nenhuma limpeza solicitada.');
+    process.exit(0);
+  }
+  scope = command.scope || 'presencas';
+}
+
+if (!['presencas', 'todos'].includes(scope)) {
+  throw new Error('Escopo de limpeza inválido.');
+}
 
 if (!rawCredential) {
   throw new Error('O segredo FIREBASE_SERVICE_ACCOUNT não foi configurado.');
@@ -36,4 +50,3 @@ let total = 0;
 for (const name of collections) total += await clearCollection(name);
 
 console.log(`Limpeza concluída. Total removido: ${total}`);
-
