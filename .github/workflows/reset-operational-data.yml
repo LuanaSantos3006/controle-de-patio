@@ -1,6 +1,9 @@
 name: Zerar dados operacionais
 
 on:
+  push:
+    paths:
+      - .github/reset-command.json
   workflow_dispatch:
     inputs:
       scope:
@@ -42,4 +45,4 @@ jobs:
       - name: Excluir registros autorizados
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: node scripts/reset-operational-data.mjs "${{ inputs.scope }}"
+        run: node scripts/reset-operational-data.mjs "${{ github.event_name == 'workflow_dispatch' && inputs.scope || '' }}"
