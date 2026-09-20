@@ -33,5 +33,10 @@ service cloud.firestore {
       allow read, create, update: if signedIn();
       allow delete: if false;
     }
+
+    match /configuracoes/{id} {
+      allow read, create, update: if signedIn();
+      allow delete: if false;
+    }
   }
 }
