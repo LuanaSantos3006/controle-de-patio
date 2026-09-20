@@ -1,0 +1,45 @@
+name: Zerar dados operacionais
+
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: Dados que serão apagados
+        required: true
+        type: choice
+        default: presencas
+        options:
+          - presencas
+          - todos
+      confirmacao:
+        description: Digite ZERAR para confirmar
+        required: true
+        type: string
+
+concurrency:
+  group: reset-operational-data
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    if: ${{ inputs.confirmacao == 'ZERAR' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Baixar projeto
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar Firebase Admin
+        run: npm install --no-save firebase-admin@13
+
+      - name: Excluir registros autorizados
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/reset-operational-data.mjs "${{ inputs.scope }}"
