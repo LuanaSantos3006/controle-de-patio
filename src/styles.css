@@ -11,12 +11,14 @@
 html,
 body,
 #root {
+  width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  min-width: 0;
+  overflow-x: clip;
 }
 body {
   margin: 0;
-  min-width: 320px;
+  position: relative;
 }
 button,
 input {
@@ -1636,7 +1638,10 @@ td span {
 }
 
 @media (max-width: 720px) {
-  body { min-width: 0; }
+  html, body, #root { width: 100%; max-width: 100vw; overflow-x: clip; }
+  .app, .app main, .top, .stats, .grid-main, .panel, .schedule-config, .departure-alerts, .report-dashboard { width: 100%; min-width: 0; max-width: 100%; }
+  .app main > *, .top > *, .panel-head > *, .schedule-config > *, .report-box, .stat > div { min-width: 0; max-width: 100%; }
+  .top { flex-wrap: wrap; }
   .app main { padding: 22px 12px; }
   .top h1 { font-size: 23px; }
   .stats { grid-template-columns: 1fr; }
@@ -1663,7 +1668,7 @@ td span {
   .queue-table .empty-row { grid-column: 1 / -1; }
   .dock-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 0 12px 12px; }
   .dock-actions { width: 100%; }
-  .dock-modal { inset: 6px; }
+  .dock-modal { inset: 6px; width: auto; max-width: calc(100vw - 12px); overflow-x: clip; }
   .dock-modal .dock-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; padding: 0 10px 12px; }
   .dock-modal .dock-card { min-height: 125px; }
   .dock-modal .conveyor { min-width: 0; margin: 0 10px; }
@@ -1677,7 +1682,8 @@ td span {
   .flow-chart svg { height: 145px; }
   .composition-box > div { flex-direction: column; align-items: flex-start; }
   .report-table { min-width: 0; width: calc(100% - 24px); margin: 0 12px; }
-  .schedule-input, input, select { max-width: 100%; }
+  .schedule-input, input, select { min-width: 0; max-width: 100%; }
+  img, svg, canvas { max-width: 100%; }
 }
 
 @media (max-width: 430px) {
