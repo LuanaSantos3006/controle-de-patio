@@ -1636,12 +1636,14 @@ td span {
   font-size: 9px;
   line-height: 1.35;
 }
+.close-turn-button{border:0;border-radius:10px;background:#0b7a5d;color:#fff;padding:11px 14px;font-size:11px;font-weight:800;display:flex;align-items:center;gap:7px;cursor:pointer;white-space:nowrap;box-shadow:0 8px 20px #0b7a5d26}.close-turn-button:disabled{opacity:.6;cursor:not-allowed}.turn-message{margin:-12px 0 18px;padding:11px 13px;border-radius:9px;background:#e6f7f1;color:#087659;font-size:11px;font-weight:700}.turn-message.error{background:#fff0ee;color:#b42318}
 
 @media (max-width: 720px) {
   html, body, #root { width: 100%; max-width: 100vw; overflow-x: clip; }
   .app, .app main, .top, .stats, .grid-main, .panel, .schedule-config, .departure-alerts, .report-dashboard { width: 100%; min-width: 0; max-width: 100%; }
   .app main > *, .top > *, .panel-head > *, .schedule-config > *, .report-box, .stat > div { min-width: 0; max-width: 100%; }
   .top { flex-wrap: wrap; }
+  .close-turn-button { width: 100%; justify-content: center; margin-top: 14px; }
   .app main { padding: 22px 12px; }
   .top h1 { font-size: 23px; }
   .stats { grid-template-columns: 1fr; }
