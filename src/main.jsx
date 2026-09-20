@@ -1954,7 +1954,6 @@ function App() {
             <b>iMile</b>
             <span>Administradora</span>
           </p>
-          <LogOut size={17} />
         </div>
       </aside>
       <main>
