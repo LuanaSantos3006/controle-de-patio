@@ -1,0 +1,37 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    match /motoristas/{id} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /presencas/{plate} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && request.resource.data.plate is string
+        && request.resource.data.route is string
+        && request.resource.data.plate.size() == 7
+        && request.resource.data.route.size() >= 2;
+      allow delete: if false;
+    }
+
+    match /movimentacoes/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.plate is string
+        && request.resource.data.route is string;
+      allow update, delete: if false;
+    }
+
+    match /alertas/{id} {
+      allow read, create, update: if signedIn();
+      allow delete: if false;
+    }
+  }
+}
