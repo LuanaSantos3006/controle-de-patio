@@ -2179,3 +2179,29 @@ html, body, #root, .app, .app main { background: #10213e; }
   border: 1px solid #e25b66;
   box-shadow: 0 8px 16px #09112675;
 }
+
+/* Programação do dia no mesmo fundo azul do painel. */
+.app .schedule-panel { background: #10213e; border-color: #304767; }
+.app .schedule-panel .eyebrow { color: #8fc7ff; }
+.app .schedule-panel .schedule-config h2 { color: #fff; }
+.app .schedule-panel .schedule-config p:not(.eyebrow) { color: #b9cde7; }
+.app .schedule-panel .schedule-date {
+  background: #1d3c67;
+  border: 1px solid #375e8c;
+  color: #e1efff;
+}
+.app .schedule-panel .schedule-search,
+.app .schedule-panel .schedule-input input {
+  background: #1c3356;
+  border-color: #446188;
+  color: #fff;
+}
+.app .schedule-panel .schedule-search input {
+  color: #fff;
+  background: transparent;
+}
+.app .schedule-panel input::placeholder { color: #bfd2eb; }
+.app .schedule-panel .schedule-empty {
+  color: #d3e5fa;
+  background: #1c3356;
+}
