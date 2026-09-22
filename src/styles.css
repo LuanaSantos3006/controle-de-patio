@@ -2207,3 +2207,47 @@ html, body, #root, .app, .app main { background: #10213e; }
   color: #d3e5fa;
   background: #1c3356;
 }
+
+/* Etapas do motorista com separação visível e seleção inequívoca. */
+.driver-stages .driver-stage {
+  position: relative;
+  overflow: hidden;
+  background: #12345b;
+  border-color: #3a6597;
+  box-shadow: 0 8px 18px #03132e44;
+}
+.driver-stages .driver-stage:nth-child(even) {
+  background: #1b456f;
+  border-color: #5980aa;
+}
+.driver-stages .driver-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: #50b9ff;
+}
+.driver-stages .driver-stage:nth-child(even)::before { background: #94d8ff; }
+.driver-stages .driver-stage-header > span {
+  background: #0c64ce;
+  box-shadow: inset 0 1px #ffffff55;
+}
+.driver-stages .driver-stage-options button {
+  border-color: #d6e9fc;
+  background: #f4f9ff;
+  color: #0c427c;
+  box-shadow: 0 2px 5px #041a393b;
+}
+.driver-stages .driver-stage-options button.selected {
+  background: #0864ce;
+  border-color: #78d0ff;
+  color: #fff;
+  box-shadow: 0 0 0 2px #78d0ff66, 0 5px 13px #061d4566;
+}
+.driver-stages .driver-stage-options button.selected::before { content: "✓ "; }
+.driver-stages .driver-stage-options button:focus-visible,
+.driver-stages .driver-dock-label select:focus-visible {
+  outline: 3px solid #8edcff;
+  outline-offset: 3px;
+}
+.driver-stages .driver-stage-options button:disabled:not(.selected) { opacity: .58; }
