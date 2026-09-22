@@ -1702,8 +1702,29 @@ td span {
 .stage-badge.waiting { background: #fff2d8; color: #9b5d00; }
 .stage-badge.missing { background: #f0f3f8; color: #71849c; }
 .stage-empty { padding: 14px 0; }
-.driver-page { align-items: start; }
-.driver-card { width: min(100%, 780px); }
+.driver-page {
+  align-items: start;
+  background: linear-gradient(155deg, #093c83 0%, #0756b2 45%, #071c42 100%);
+}
+.driver-card {
+  width: min(100%, 780px);
+  padding: 16px 0 28px;
+  background: transparent;
+  box-shadow: none;
+  color: #fff;
+}
+.driver-card .scan-brand { border-bottom-color: #ffffff40; }
+.driver-card .scan-brand span { background: #fff; color: #096bdd; }
+.driver-card > .eyebrow { color: #bfe5ff; }
+.driver-card h1 { color: #fff; }
+.driver-card .scan-help { color: #e3f1ff; }
+.driver-entry {
+  padding: 22px;
+  border-radius: 18px;
+  background: #fff;
+  color: #193354;
+  box-shadow: 0 16px 35px #04183238;
+}
 .driver-identification {
   display: flex;
   flex-wrap: wrap;
@@ -1712,7 +1733,8 @@ td span {
   padding: 14px;
   margin-bottom: 18px;
   border-radius: 12px;
-  background: #edf5ff;
+  background: #fff;
+  box-shadow: 0 12px 30px #0418322b;
 }
 .driver-identification strong { font-size: 22px; color: #0d3970; }
 .driver-identification span { font-size: 11px; color: #55708e; overflow-wrap: anywhere; }
@@ -1727,9 +1749,11 @@ td span {
 .driver-stages { display: grid; gap: 12px; }
 .driver-stage {
   padding: 16px;
-  border: 1px solid #dde7f2;
+  border: 1px solid #ffffff;
   border-radius: 14px;
-  background: #fbfdff;
+  background: #fff;
+  color: #193354;
+  box-shadow: 0 12px 30px #04183226;
 }
 .driver-stage-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .driver-stage-header > span {
@@ -1751,7 +1775,7 @@ td span {
   padding: 9px;
   border: 1px solid #c9d8e8;
   border-radius: 9px;
-  background: #fff;
+  background: #f0f6ff;
   color: #224264;
   font-size: 12px;
   font-weight: 800;
@@ -1760,8 +1784,8 @@ td span {
 }
 .driver-stage-options button.selected {
   border-color: #076fdc;
-  background: #e7f2ff;
-  color: #075cab;
+  background: #075cab;
+  color: #fff;
 }
 .driver-stage-options button:disabled { opacity: .55; cursor: not-allowed; }
 .driver-stage small { display: block; margin-top: 8px; color: #74869a; font-size: 10px; }
