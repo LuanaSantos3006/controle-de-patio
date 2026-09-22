@@ -1646,9 +1646,75 @@ td span {
   font-size: 9px;
   line-height: 1.35;
 }
+.documentation-panel {
+  margin-bottom: 16px;
+}
+.documentation-total {
+  display: inline-flex;
+  border-radius: 999px;
+  background: #fff1d1;
+  color: #915100;
+  padding: 7px 11px;
+  font-size: 11px;
+  font-weight: 800;
+}
+.documentation-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 0 20px 20px;
+}
+.documentation-groups > div {
+  min-width: 0;
+  border: 1px solid #e3eaf2;
+  border-radius: 12px;
+  padding: 14px;
+}
+.documentation-groups h3 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #193354;
+}
+.documentation-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 0;
+  padding: 9px 0;
+  border-top: 1px solid #edf1f6;
+  font-size: 11px;
+}
+.documentation-row b {
+  color: #122c50;
+  font-size: 14px;
+}
+.documentation-row span {
+  color: #6c7e93;
+}
+.documentation-row strong {
+  margin-left: auto;
+  color: #0b775a;
+}
+.documentation-groups > div:first-child .documentation-row strong {
+  color: #a76400;
+}
+.documentation-empty {
+  margin: 0;
+  font-size: 11px;
+  color: #78889a;
+}
+.documentation-link {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-decoration: none;
+  margin-top: 12px;
+}
 .close-turn-button{border:0;border-radius:10px;background:#0b7a5d;color:#fff;padding:11px 14px;font-size:11px;font-weight:800;display:flex;align-items:center;gap:7px;cursor:pointer;white-space:nowrap;box-shadow:0 8px 20px #0b7a5d26}.close-turn-button:disabled{opacity:.6;cursor:not-allowed}.turn-message{margin:-12px 0 18px;padding:11px 13px;border-radius:9px;background:#e6f7f1;color:#087659;font-size:11px;font-weight:700}.turn-message.error{background:#fff0ee;color:#b42318}
 
 @media (max-width: 720px) {
+  .documentation-groups { grid-template-columns: 1fr; padding: 0 12px 14px; }
   html, body, #root { width: 100%; max-width: 100vw; overflow-x: clip; }
   .app, .app main, .top, .stats, .grid-main, .panel, .schedule-config, .departure-alerts, .report-dashboard { width: 100%; min-width: 0; max-width: 100%; }
   .app main > *, .top > *, .panel-head > *, .schedule-config > *, .report-box, .stat > div { min-width: 0; max-width: 100%; }
