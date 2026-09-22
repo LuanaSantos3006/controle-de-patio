@@ -4,21 +4,17 @@ import {
   CarFront,
   Clock3,
   Container,
-  LayoutDashboard,
   MapPin,
   QrCode,
   Search,
   Truck,
   Users,
-  BarChart3,
-  Menu,
   X,
   LogOut,
   ChevronRight,
   CircleCheck,
   AlertTriangle,
   Maximize2,
-  Download,
 } from "lucide-react";
 import {
   addDoc,
@@ -92,11 +88,6 @@ const docks = [
   { id: "65", bases: ["STDI"] },
   { id: "66", bases: ["ACM"] },
   { id: "67", bases: ["AET", "BCC"] },
-];
-
-const nav = [
-  ["Visão geral", LayoutDashboard],
-  ["Relatórios", BarChart3],
 ];
 
 const driverStages = [
@@ -252,32 +243,6 @@ function Sparkline({ values, tone }) {
     </svg>
   );
 }
-function FlowChart({ arrivals, releases }) {
-  const max = Math.max(...arrivals, ...releases, 1);
-  const points = (values) =>
-    values
-      .map((value, index) => `${8 + index * 11.5},${86 - (value / max) * 70}`)
-      .join(" ");
-  return (
-    <div className="flow-chart">
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none">
-        <line x1="8" y1="86" x2="100" y2="86" />
-        <line x1="8" y1="51" x2="100" y2="51" />
-        <line x1="8" y1="16" x2="100" y2="16" />
-        <polyline className="arrival-line" points={points(arrivals)} />
-        <polyline className="release-line" points={points(releases)} />
-      </svg>
-      <div className="flow-labels">
-        {["22h", "23h", "00h", "01h", "02h", "03h", "04h", "05h", "06h"].map(
-          (label) => (
-            <span key={label}>{label}</span>
-          ),
-        )}
-      </div>
-    </div>
-  );
-}
-
 const timestampMillis = (value) =>
   value?.toDate
     ? value.toDate().getTime()
@@ -505,7 +470,8 @@ function DockMap({ liveDocks, expanded, onExpand, onClose }) {
   );
 }
 
-function Dashboard({ onScan, activeNav }) {
+function Dashboard() {
+  const activeNav = "Visão geral";
   const [query, setQuery] = useState("");
   const [driverRecords, setDriverRecords] = useState(
     firebaseReady ? [] : initialDrivers,
@@ -528,18 +494,9 @@ function Dashboard({ onScan, activeNav }) {
   const [manualReleasePlate, setManualReleasePlate] = useState("");
   const [manualReleaseError, setManualReleaseError] = useState("");
   const [now, setNow] = useState(Date.now());
-  const pageCopy = {
-    "Visão geral": [
-      "Visão geral do pátio",
-      "Acompanhe toda a operação em tempo real em um único painel.",
-    ],
-    Relatórios: [
-      "Relatório de encerramento do turno",
-      "Confira a pontualidade das saídas e baixe o fechamento da operação.",
-    ],
-  }[activeNav] || [
+  const pageCopy = [
     "Visão geral do pátio",
-    "Acompanhe a operação em tempo real.",
+    "Acompanhe toda a operação em tempo real em um único painel.",
   ];
   useEffect(() => {
     if (!firebaseReady || !db) return;
@@ -801,391 +758,6 @@ function Dashboard({ onScan, activeNav }) {
       ),
     [departureAlerts, scheduleQuery],
   );
-  const departureReport = useMemo(
-    () =>
-      scheduleRows
-        .map((item) => {
-          const record = allDrivers.find((d) => d.plate === item.plate);
-          const scheduled = scheduleDate(item.date, item.departureTime);
-          const actual = record?.releasedAt?.toDate
-            ? record.releasedAt.toDate()
-            : null;
-          if (!scheduled) return null;
-          const delay = actual
-            ? Math.max(
-                0,
-                Math.ceil((actual.getTime() - scheduled.getTime()) / 60000),
-              )
-            : null;
-          const status = actual
-            ? delay > 0
-              ? "Saiu atrasado"
-              : "Saiu no horário"
-            : !record
-              ? "Sem registro no CDC"
-              : now > scheduled.getTime()
-                ? "Saída pendente e atrasada"
-                : "Em operação";
-          return { ...item, scheduled, actual, delay, status };
-        })
-        .filter(Boolean)
-        .sort((a, b) => a.scheduled - b.scheduled),
-    [scheduleRows, allDrivers, now],
-  );
-  const reportTotals = useMemo(() => {
-    const onTime = departureReport.filter(
-        (x) => x.status === "Saiu no horário",
-      ).length,
-      late = departureReport.filter((x) => x.status === "Saiu atrasado").length;
-    return {
-      total: departureReport.length,
-      onTime,
-      late,
-      pending: departureReport.length - onTime - late,
-    };
-  }, [departureReport]);
-  const reportSeries = useMemo(() => {
-    const cumulative = (predicate) =>
-      departureReport.reduce(
-        (series, item) => [
-          ...series,
-          (series.at(-1) || 0) + (predicate(item) ? 1 : 0),
-        ],
-        [0],
-      );
-    return {
-      total: cumulative(() => true),
-      onTime: cumulative((item) => item.status === "Saiu no horário"),
-      late: cumulative((item) => item.status === "Saiu atrasado"),
-      pending: cumulative(
-        (item) =>
-          item.status !== "Saiu no horário" && item.status !== "Saiu atrasado",
-      ),
-    };
-  }, [departureReport]);
-  const reportDashboard = useMemo(() => {
-    const hours = [22, 23, 0, 1, 2, 3, 4, 5, 6],
-      hourIndex = (value) => {
-        const ms = timestampMillis(value);
-        return ms ? hours.indexOf(new Date(ms).getHours()) : -1;
-      };
-    const arrivals = hours.map(() => 0),
-      releases = hours.map(() => 0);
-    allDrivers.forEach((driver) => {
-      const arrivalIndex = hourIndex(driver.arrivalAt),
-        releaseIndex = hourIndex(driver.releasedAt);
-      if (arrivalIndex >= 0) arrivals[arrivalIndex]++;
-      if (releaseIndex >= 0) releases[releaseIndex]++;
-    });
-    const routeMap = {};
-    departureReport
-      .filter((item) => item.delay > 0)
-      .forEach((item) => {
-        const route = item.route || "Rota não informada";
-        routeMap[route] = Math.max(routeMap[route] || 0, item.delay);
-      });
-    const routes = Object.entries(routeMap)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 4);
-    const stays = allDrivers
-      .map((driver) => {
-        const start = timestampMillis(driver.arrivalAt);
-        const end = timestampMillis(driver.releasedAt) || now;
-        return {
-          plate: driver.plate,
-          minutes: start ? Math.max(0, Math.floor((end - start) / 60000)) : 0,
-        };
-      })
-      .filter((item) => item.minutes > 0)
-      .sort((a, b) => b.minutes - a.minutes)
-      .slice(0, 3);
-    return { arrivals, releases, routes, stays };
-  }, [allDrivers, departureReport, now]);
-  const downloadReportPng = () => {
-    const canvas = document.createElement("canvas"),
-      ctx = canvas.getContext("2d"),
-      W = 1600,
-      H = 900;
-    canvas.width = W;
-    canvas.height = H;
-    const navy = "#082574",
-      blue = "#0967de",
-      cyan = "#1ec1d1",
-      textColor = "#0a276f",
-      muted = "#5f7194",
-      grid = "#cfdae7";
-    const box = (x, y, w, h, r = 14, fill = "#fff") => {
-      ctx.beginPath();
-      ctx.roundRect(x, y, w, h, r);
-      ctx.fillStyle = fill;
-      ctx.fill();
-    };
-    const label = (value, x, y, size = 14, color = textColor, bold = false) => {
-      ctx.fillStyle = color;
-      ctx.font = (bold ? "700 " : "400 ") + size + "px Arial";
-      ctx.fillText(String(value), x, y);
-    };
-    ctx.fillStyle = "#eaf6fb";
-    ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = "#07388f";
-    ctx.fillRect(0, 0, W, 132);
-    ctx.fillStyle = "#0872e8";
-    ctx.beginPath();
-    ctx.moveTo(0, 98);
-    ctx.bezierCurveTo(220, 45, 300, 125, 510, 92);
-    ctx.bezierCurveTo(720, 145, 900, 80, 1070, 93);
-    ctx.bezierCurveTo(1280, 130, 1430, 62, 1600, 96);
-    ctx.lineTo(1600, 132);
-    ctx.lineTo(0, 132);
-    ctx.fill();
-    ctx.fillStyle = cyan;
-    ctx.beginPath();
-    ctx.moveTo(0, 106);
-    ctx.bezierCurveTo(200, 98, 310, 138, 510, 104);
-    ctx.bezierCurveTo(710, 148, 930, 92, 1130, 108);
-    ctx.bezierCurveTo(1330, 140, 1470, 96, 1600, 109);
-    ctx.lineTo(1600, 132);
-    ctx.lineTo(0, 132);
-    ctx.fill();
-    label("DASHBOARD | CONTROLE DE PÁTIO", 55, 55, 32, "#fff", true);
-  label("iMile • SP1 E SP8 - GUARULHOS", 1200, 35, 21, "#fff", true);
-    label("Data: " + (scheduleReferenceDate || "—"), 1380, 66, 17, "#fff");
-    const total = reportTotals.total || 1,
-      onPct = Math.round((reportTotals.onTime / total) * 100),
-      latePct = Math.round((reportTotals.late / total) * 100),
-      pendingPct = Math.round((reportTotals.pending / total) * 100);
-    [
-      ["VEÍCULOS PROGRAMADOS", reportTotals.total, "Programação vigente", blue],
-      ["SAÍRAM NO HORÁRIO", reportTotals.onTime, onPct + "% do total", cyan],
-      ["SAÍRAM ATRASADOS", reportTotals.late, latePct + "% do total", cyan],
-      ["SAÍDA PENDENTE", reportTotals.pending, pendingPct + "% do total", blue],
-    ].forEach((k, i) => {
-      const x = 38 + i * 385;
-      box(x, 130, 373, 134);
-      box(x + 10, 136, 12, 122, 6, k[3]);
-      label(k[0], x + 39, 162, 15, muted, true);
-      label(k[1], x + 39, 215, 45, textColor, true);
-      label(k[2], x + 39, 245, 16, muted);
-    });
-    box(38, 282, 845, 347);
-    label("Fluxo de veículos por horário", 70, 324, 22, textColor, true);
-    ctx.fillStyle = blue;
-    ctx.beginPath();
-    ctx.arc(596, 316, 6, 0, Math.PI * 2);
-    ctx.fill();
-    label("Chegadas", 610, 320, 13, muted);
-    ctx.fillStyle = cyan;
-    ctx.beginPath();
-    ctx.arc(706, 316, 6, 0, Math.PI * 2);
-    ctx.fill();
-    label("Liberações", 720, 320, 13, muted);
-    const hours = [
-        "22h",
-        "23h",
-        "00h",
-        "01h",
-        "02h",
-        "03h",
-        "04h",
-        "05h",
-        "06h",
-      ],
-      maxFlow = Math.max(
-        ...reportDashboard.arrivals,
-        ...reportDashboard.releases,
-        1,
-      ),
-      x0 = 105,
-      y0 = 580,
-      x1 = 840,
-      y1 = 365;
-    [0, 0.33, 0.66, 1].forEach((p) => {
-      const y = y0 - p * (y0 - y1);
-      ctx.strokeStyle = grid;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x0, y);
-      ctx.lineTo(x1, y);
-      ctx.stroke();
-      label(Math.round(maxFlow * p), 68, y + 4, 12, muted);
-    });
-    const drawFlow = (values, color) => {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      values.forEach((v, i) => {
-        const x = x0 + (i * (x1 - x0)) / 8,
-          y = y0 - (v / maxFlow) * (y0 - y1);
-        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
-      });
-      ctx.stroke();
-      values.forEach((v, i) => {
-        const x = x0 + (i * (x1 - x0)) / 8,
-          y = y0 - (v / maxFlow) * (y0 - y1);
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(x, y, 5, 0, Math.PI * 2);
-        ctx.fill();
-      });
-    };
-    drawFlow(reportDashboard.arrivals, blue);
-    drawFlow(reportDashboard.releases, cyan);
-    hours.forEach((h, i) =>
-      label(h, x0 + (i * (x1 - x0)) / 8 - 12, 604, 12, muted),
-    );
-    box(895, 282, 355, 347);
-    label("Atrasos por rota", 930, 324, 22, textColor, true);
-    const routeMax = Math.max(
-      ...reportDashboard.routes.map((item) => item[1]),
-      1,
-    );
-    reportDashboard.routes.slice(0, 4).forEach((item, i) => {
-      const y = 365 + i * 58;
-      label(item[0].slice(0, 14), 930, y + 12, 12, muted);
-      ctx.fillStyle = blue;
-      ctx.fillRect(1045, y - 4, (150 * item[1]) / routeMax, 26);
-      label(
-        item[1] + " min",
-        1053 + (150 * item[1]) / routeMax,
-        y + 14,
-        12,
-        textColor,
-        true,
-      );
-    });
-    box(1262, 282, 300, 347);
-    label("MAIORES PERMANÊNCIAS", 1295, 317, 16, textColor, true);
-    box(1280, 340, 264, 260, 15, "#eef6fb");
-    label("Veículos no CDC", 1308, 382, 17, textColor, true);
-    reportDashboard.stays.slice(0, 3).forEach((item, i) => {
-      const y = 420 + i * 55;
-      label(i + 1 + ". " + item.plate, 1308, y, 14, textColor);
-      label(formatDuration(item.minutes), 1460, y, 14, blue, true);
-    });
-    box(38, 647, 510, 201);
-    label("COMPOSIÇÃO DAS SAÍDAS", 70, 685, 20, textColor, true);
-    const cx = 175,
-      cy = 765,
-      r = 62;
-    ctx.lineWidth = 24;
-    ctx.strokeStyle = blue;
-    ctx.beginPath();
-    ctx.arc(
-      cx,
-      cy,
-      r - 12,
-      -Math.PI / 2,
-      -Math.PI / 2 + (Math.PI * 2 * reportTotals.onTime) / total,
-    );
-    ctx.stroke();
-    ctx.strokeStyle = "#e94b48";
-    ctx.beginPath();
-    ctx.arc(
-      cx,
-      cy,
-      r - 12,
-      -Math.PI / 2 + (Math.PI * 2 * reportTotals.onTime) / total,
-      -Math.PI / 2 +
-        (Math.PI * 2 * (reportTotals.onTime + reportTotals.late)) / total,
-    );
-    ctx.stroke();
-    ctx.strokeStyle = "#f1b83b";
-    ctx.beginPath();
-    ctx.arc(
-      cx,
-      cy,
-      r - 12,
-      -Math.PI / 2 +
-        (Math.PI * 2 * (reportTotals.onTime + reportTotals.late)) / total,
-      Math.PI * 1.5,
-    );
-    ctx.stroke();
-    label(onPct + "%", 142, 760, 19, textColor, true);
-    label("no horário", 145, 780, 11, muted);
-    [
-      ["No horário", reportTotals.onTime, blue],
-      ["Atrasados", reportTotals.late, "#e94b48"],
-      ["Pendentes", reportTotals.pending, "#f1b83b"],
-    ].forEach((item, i) => {
-      const y = 722 + i * 39;
-      ctx.fillStyle = item[2];
-      ctx.beginPath();
-      ctx.arc(300, y, 8, 0, Math.PI * 2);
-      ctx.fill();
-      label(item[0], 320, y + 4, 13, muted);
-      label(item[1], 470, y + 4, 13, textColor, true);
-    });
-    box(560, 647, 483, 201);
-    label("INSIGHT OPERACIONAL", 594, 685, 20, textColor, true);
-    label(reportTotals.late + " veículos", 594, 737, 35, blue, true);
-    const lead = reportDashboard.routes[0];
-    label(
-      reportTotals.late
-        ? "saíram após o horário programado."
-        : "Não houve saídas atrasadas no turno.",
-      594,
-      770,
-      14,
-      muted,
-    );
-    if (lead) {
-      label(
-        (
-          "A rota " +
-          lead[0] +
-          " teve o maior atraso: " +
-          lead[1] +
-          " min."
-        ).slice(0, 56),
-        594,
-        792,
-        14,
-        muted,
-      );
-      label(
-        "Priorize a liberação das docas com maior desvio.",
-        594,
-        814,
-        14,
-        muted,
-      );
-    }
-    box(1055, 647, 507, 201);
-    label("FOCO DE TRATATIVA", 1090, 685, 20, textColor, true);
-    reportDashboard.routes.slice(0, 3).forEach((item, i) => {
-      const y = 724 + i * 42;
-      label("0" + (i + 1), 1092, y, 14, cyan, true);
-      label(item[0].slice(0, 22), 1140, y, 15, textColor, true);
-      label(item[1] + " min", 1442, y, 14, blue, true);
-    });
-    label("iMile", 48, 893, 29, blue, true);
-    ctx.strokeStyle = blue;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(135, 881);
-    ctx.lineTo(370, 881);
-    ctx.stroke();
-    label(
-      "Fonte: Controle de Pátio • Gerado em " +
-        new Date().toLocaleString("pt-BR"),
-      1110,
-      881,
-      12,
-      muted,
-    );
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      const url = URL.createObjectURL(blob),
-        link = document.createElement("a");
-      link.href = url;
-      link.download =
-        "dashboard-controle-patio-" +
-        (scheduleReferenceDate || "programacao").replace(/\//g, "-") +
-        ".png";
-      link.click();
-      URL.revokeObjectURL(url);
-    }, "image/png");
-  };
   const saveScheduleLink = async () => {
     setScheduleError("");
     try {
@@ -1250,14 +822,13 @@ function Dashboard({ onScan, activeNav }) {
     if (
       closingTurn ||
       !window.confirm(
-        "Encerrar o turno agora? O relatório será baixado e o painel será zerado para a próxima operação.",
+        "Encerrar o turno agora? O painel será zerado para a próxima operação.",
       )
     )
       return;
     setClosingTurn(true);
     setTurnMessage("");
     try {
-      downloadReportPng();
       try {
         await addDoc(collection(db, "turnos"), {
           programDate: scheduleReferenceDate || null,
@@ -1265,7 +836,6 @@ function Dashboard({ onScan, activeNav }) {
           waiting,
           docked,
           released,
-          report: { ...reportTotals },
           startedAt: turnStartedAt ? new Date(turnStartedAt) : null,
           closedAt: serverTimestamp(),
         });
@@ -1758,187 +1328,6 @@ function Dashboard({ onScan, activeNav }) {
             />
           ) : null}
         </>
-      ) : null}
-      {activeNav === "Relatórios" ? (
-        <section className="report-dashboard">
-          <div className="report-banner">
-            <div>
-              <h2>DASHBOARD | CONTROLE DE PÁTIO</h2>
-              <p>Fechamento operacional do turno 22h–6h20</p>
-            </div>
-            <div>
-                <b>iMile • SP1 E SP8 - GUARULHOS</b>
-              <span>Data: {scheduleReferenceDate || "—"}</span>
-              <button onClick={downloadReportPng}>
-                <Download size={16} /> Baixar PNG
-              </button>
-            </div>
-          </div>
-          {departureReport.length ? (
-            <>
-              <div className="report-kpis dashboard-kpis">
-                <article>
-                  <span>VEÍCULOS PROGRAMADOS</span>
-                  <b>{reportTotals.total}</b>
-                  <small>Programação vigente</small>
-                </article>
-                <article className="report-good">
-                  <span>SAÍRAM NO HORÁRIO</span>
-                  <b>{reportTotals.onTime}</b>
-                  <small>
-                    {reportTotals.total
-                      ? Math.round(
-                          (reportTotals.onTime / reportTotals.total) * 100,
-                        )
-                      : 0}
-                    % do total
-                  </small>
-                </article>
-                <article className="report-bad">
-                  <span>SAÍRAM ATRASADOS</span>
-                  <b>{reportTotals.late}</b>
-                  <small>
-                    {reportTotals.total
-                      ? Math.round(
-                          (reportTotals.late / reportTotals.total) * 100,
-                        )
-                      : 0}
-                    % do total
-                  </small>
-                </article>
-                <article className="report-wait">
-                  <span>SAÍDA PENDENTE</span>
-                  <b>{reportTotals.pending}</b>
-                  <small>
-                    {reportTotals.total
-                      ? Math.round(
-                          (reportTotals.pending / reportTotals.total) * 100,
-                        )
-                      : 0}
-                    % do total
-                  </small>
-                </article>
-              </div>
-              <div className="report-middle">
-                <article className="report-box flow-box">
-                  <div className="report-box-title">
-                    <h3>Fluxo de veículos por horário</h3>
-                    <p>
-                      <i className="blue-key" />
-                      Chegadas <i className="cyan-key" />
-                      Liberações
-                    </p>
-                  </div>
-                  <FlowChart
-                    arrivals={reportDashboard.arrivals}
-                    releases={reportDashboard.releases}
-                  />
-                </article>
-                <article className="report-box route-box">
-                  <h3>Atrasos por rota</h3>
-                  {reportDashboard.routes.length ? (
-                    reportDashboard.routes.map(([route, delay]) => (
-                      <div className="route-bar" key={route}>
-                        <span>{route}</span>
-                        <i
-                          style={{
-                            width: `${Math.max(8, (delay / Math.max(...reportDashboard.routes.map((item) => item[1]))) * 72)}%`,
-                          }}
-                        />
-                        <b>{delay} min</b>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="no-data">Nenhuma saída atrasada.</p>
-                  )}
-                </article>
-                <article className="report-box stay-box">
-                  <h3>MAIORES PERMANÊNCIAS</h3>
-                  <div>
-                    <h4>Veículos no CDC</h4>
-                    {reportDashboard.stays.length ? (
-                      reportDashboard.stays.map((item, index) => (
-                        <p key={item.plate}>
-                          <span>
-                            {index + 1}. {item.plate}
-                          </span>
-                          <b>{formatDuration(item.minutes)}</b>
-                        </p>
-                      ))
-                    ) : (
-                      <small>Sem permanências registradas.</small>
-                    )}
-                  </div>
-                </article>
-              </div>
-              <div className="report-bottom">
-                <article className="report-box composition-box">
-                  <h3>COMPOSIÇÃO DAS SAÍDAS</h3>
-                  <div>
-                    <div
-                      className="report-donut"
-                      style={{
-                        background: `conic-gradient(#0967de 0 ${reportTotals.total ? (reportTotals.onTime / reportTotals.total) * 100 : 0}%,#e94b48 0 ${reportTotals.total ? ((reportTotals.onTime + reportTotals.late) / reportTotals.total) * 100 : 0}%,#f1b83b 0)`,
-                      }}
-                    >
-                      <span>
-                        <b>
-                          {reportTotals.total
-                            ? Math.round(
-                                (reportTotals.onTime / reportTotals.total) *
-                                  100,
-                              )
-                            : 0}
-                          %
-                        </b>
-                        no horário
-                      </span>
-                    </div>
-                    <ul>
-                      <li>
-                        <i className="dot-blue" />
-                        No horário <b>{reportTotals.onTime}</b>
-                      </li>
-                      <li>
-                        <i className="dot-red" />
-                        Atrasados <b>{reportTotals.late}</b>
-                      </li>
-                      <li>
-                        <i className="dot-yellow" />
-                        Pendentes <b>{reportTotals.pending}</b>
-                      </li>
-                    </ul>
-                  </div>
-                </article>
-                <article className="report-box insight-box">
-                  <h3>INSIGHT OPERACIONAL</h3>
-                  <strong>{reportTotals.late} veículos</strong>
-                  <p>
-                    {reportTotals.late
-                      ? `saíram após o horário programado. ${reportDashboard.routes[0] ? `A rota ${reportDashboard.routes[0][0]} concentrou o maior atraso: ${reportDashboard.routes[0][1]} minutos.` : ""} Priorize a liberação das docas com maior desvio.`
-                      : "Não foram registradas saídas atrasadas no turno."}
-                  </p>
-                </article>
-                <article className="report-box focus-box">
-                  <h3>FOCO DE TRATATIVA</h3>
-                  {reportDashboard.routes
-                    .slice(0, 3)
-                    .map(([route, delay], index) => (
-                      <p key={route}>
-                        <em>0{index + 1}</em>
-                        <b>{route}</b>
-                        <span>{delay} min</span>
-                      </p>
-                    ))}
-                </article>
-              </div>
-            </>
-          ) : (
-            <p className="empty-section">
-              Nenhuma programação disponível para gerar o relatório.
-            </p>
-          )}
-        </section>
       ) : null}
     </>
   );
@@ -2692,8 +2081,6 @@ function App() {
       return "scan";
     return "admin";
   });
-  const [open, setOpen] = useState(false);
-  const [activeNav, setActiveNav] = useState("Visão geral");
   const [authReady, setAuthReady] = useState(false);
   const [authError, setAuthError] = useState("");
   useEffect(() => {
@@ -2723,11 +2110,6 @@ function App() {
     });
     return unsubscribe;
   }, []);
-  const navigate = (n) => {
-    setActiveNav(n);
-    setOpen(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
   if (!authReady)
     return (
       <div className="scan-page">
@@ -2760,7 +2142,7 @@ function App() {
     <Scan />
   ) : (
     <div className="app">
-      <aside className={`sidebar ${open ? "open" : ""}`}>
+      <header className="app-header">
         <div className="brand">
           <div className="brandmark">
             <CarFront />
@@ -2769,35 +2151,11 @@ function App() {
             <b>Controle de Pátio</b>
             <span>SP1 E SP8 - GUARULHOS</span>
           </div>
-          <button className="mobile-close" onClick={() => setOpen(false)}>
-            <X />
-          </button>
         </div>
-        <nav>
-          {nav.map(([n, I]) => (
-            <button
-              key={n}
-              className={activeNav === n ? "active" : ""}
-              onClick={() => navigate(n)}
-            >
-              <I size={18} />
-              {n}
-            </button>
-          ))}
-        </nav>
-        <div className="profile">
-          <div>iM</div>
-          <p>
-            <b>iMile</b>
-            <span>Administradora</span>
-          </p>
-        </div>
-      </aside>
+        <span className="app-header-company">iMile • Controle operacional</span>
+      </header>
       <main>
-        <button className="mobile-menu" onClick={() => setOpen(true)}>
-          <Menu />
-        </button>
-        <Dashboard activeNav={activeNav} onScan={() => setScreen("scan")} />
+        <Dashboard />
       </main>
     </div>
   );
