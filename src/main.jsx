@@ -691,11 +691,16 @@ function Dashboard({ onScan, activeNav }) {
             };
           })
         : allDrivers.map((driver) => ({ ...driver, registered: true }));
-      return rows.filter((driver) =>
-        `${driver.plate || ""} ${driver.name || ""} ${driver.route || ""} ${driver.location || ""}`
-          .toLowerCase()
-          .includes(query.toLowerCase()),
-      );
+      return rows
+        .filter((driver) =>
+          `${driver.plate || ""} ${driver.name || ""} ${driver.route || ""} ${driver.location || ""}`
+            .toLowerCase()
+            .includes(query.toLowerCase()),
+        )
+        .sort((a, b) =>
+          operationalProgress(b.registered ? b : null).percent -
+          operationalProgress(a.registered ? a : null).percent,
+        );
     },
     [query, scheduleRows, allDrivers],
   );
@@ -1515,7 +1520,7 @@ function Dashboard({ onScan, activeNav }) {
                           <td>
                             {d.registered ? (
                               <span className={`time-chip ${timeTone(mins)}`}>
-                                <Clock3 size={15} aria-hidden="true" />
+                                <Clock3 size={12} aria-hidden="true" />
                                 {formatDuration(mins)}
                               </span>
                             ) : "—"}
