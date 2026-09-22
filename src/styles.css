@@ -1280,12 +1280,22 @@ td span {
   display: grid;
   gap: 2px;
 }
+.departure-alerts .departure-alert-content {
+  min-width: 0;
+}
+.departure-alerts .departure-alert-plate {
+  display: block;
+  margin-bottom: 4px;
+  font: 800 20px/1.2 Manrope, sans-serif;
+  letter-spacing: 0.035em;
+}
 .departure-alerts b {
   font-size: 10px;
 }
 .departure-alerts span {
   font-size: 10px;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 .departure-alerts small {
   font-size: 9px;
