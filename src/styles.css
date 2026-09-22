@@ -2413,3 +2413,42 @@ html, body, #root, .app, .app main { background: #10213e; }
 @media (max-width: 600px) {
   .occupancy-chart-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Link do motorista: uma pergunta por vez, com botões grandes. */
+.driver-card { width: min(100%, 520px); }
+.driver-current-stage {
+  padding: 23px;
+  background: #173c68;
+  border: 1px solid #5894c8;
+  box-shadow: 0 16px 34px #05132966;
+}
+.driver-step-count { color: #acdfff; font-size: 11px; font-weight: 800; letter-spacing: .08em; }
+.driver-step-track { height: 7px; margin: 10px 0 22px; border-radius: 999px; background: #0a2548; overflow: hidden; }
+.driver-step-track span { display: block; height: 100%; background: #48c1fb; border-radius: inherit; }
+.driver-current-stage h2 { margin: 0; font: 800 clamp(21px, 4vw, 27px)/1.25 Manrope, sans-serif; color: #fff; }
+.driver-step-hint { margin: 8px 0 18px; color: #d5e8fa; font-size: 13px; line-height: 1.5; }
+.driver-current-value { display: inline-block; margin: 0 0 15px; padding: 8px 11px; border-radius: 8px; background: #0b2b50; color: #fff; font-size: 12px; }
+.driver-current-stage .driver-stage-options { grid-template-columns: 1fr; gap: 12px; }
+.driver-current-stage .driver-stage-options button {
+  min-height: 56px;
+  padding: 13px;
+  border-radius: 12px;
+  font-size: 15px;
+  text-transform: none;
+}
+.driver-current-stage .driver-stage-options button.driver-complete-option {
+  background: #0b73e0;
+  border-color: #69c5ff;
+  color: #fff;
+}
+.driver-current-stage .driver-stage-options button:disabled.selected { opacity: .7; }
+.driver-current-stage .driver-dock-label { display: block; margin-bottom: 18px !important; font-size: 13px; font-weight: 700; }
+.driver-current-stage .driver-dock-label select { min-height: 48px; font-size: 15px; }
+.driver-finished { padding: 27px; text-align: center; border: 1px solid #42b991; border-radius: 15px; background: #123f54; color: #fff; }
+.driver-finished svg { color: #70e4b3; }
+.driver-finished h2 { margin: 9px 0; color: #fff; font-size: 22px; }
+.driver-finished p { margin: 0; color: #d1f5e8; font-size: 13px; }
+@media (max-width: 520px) {
+  .driver-current-stage { padding: 18px; }
+  .driver-card { padding: 14px 0 24px; }
+}
