@@ -2045,3 +2045,44 @@ td span {
   .scan-page { padding: 12px; }
   .scan-card { width: 100%; }
 }
+
+/* Painel no azul institucional; indicadores com explicação no verso. */
+html, body, #root, .app, .app main { background: #10213e; }
+.top h1, .top .sub { color: #fff; }
+.top .eyebrow { color: #69c7ff; }
+.stats { perspective: 1000px; }
+.stat {
+  display: block;
+  padding: 0;
+  height: 154px;
+  border: 0;
+  background: transparent;
+  box-shadow: 0 12px 30px #06132b55;
+  cursor: pointer;
+  text-align: left;
+  perspective: 900px;
+  color: #10213e;
+}
+.stat:focus-visible { outline: 3px solid #68c8ff; outline-offset: 4px; }
+.stat-inner { display: block; position: relative; height: 100%; width: 100%; transform-style: preserve-3d; transition: transform .65s ease; }
+.stat.stat-flipped .stat-inner { transform: rotateY(180deg); }
+.stat-face { position: absolute; inset: 0; display: flex; align-items: center; gap: 16px; border-radius: 14px; padding: 20px; backface-visibility: hidden; -webkit-backface-visibility: hidden; overflow: hidden; }
+.stat .stat-face { display: flex; }
+.stat-front { background: #fff; border: 1px solid #d8e4f4; }
+.stat-back { background: #fff; border: 1px solid #d8e4f4; transform: rotateY(180deg); flex-direction: column; align-items: flex-start; justify-content: center; gap: 6px; }
+.stat .stat-icon { display: grid; width: 52px; height: 52px; border-radius: 13px; }
+.stat-content { min-width: 0; }
+.stat .stat-label, .stat .stat-back-label { font-size: 13px; font-weight: 800; color: #173b70; }
+.stat strong { font-size: 34px; line-height: 1.18; color: #10213e; }
+.stat .stat-back strong { font: 700 16px/1.35 Manrope, sans-serif; color: #10213e; overflow-wrap: anywhere; }
+.stat small { font-size: 10px; color: #607795; }
+@media (hover: hover) and (pointer: fine) {
+  .stat:hover .stat-inner { transform: rotateY(180deg); }
+}
+@media (max-width: 720px) {
+  .stat { height: 125px; }
+  .stat-face { padding: 16px; }
+  .stat .stat-icon { margin-bottom: 0; }
+  .stat small { display: block; }
+}
+@media (prefers-reduced-motion: reduce) { .stat-inner { transition: none; } }
