@@ -1240,15 +1240,13 @@ function Dashboard({ onScan, activeNav }) {
                       ) : (
                         <AlertTriangle size={20} />
                       )}
-                      <div>
+                      <div className="departure-alert-content">
+                        <strong className="departure-alert-plate">{item.plate}</strong>
                         <b>{alertLabel}</b>
                         <span>
-                          {item.plate} •{" "}
-                          {item.route ||
-                            item.driver?.route ||
-                            "Rota não informada"}{" "}
-                          • Chegada programada: {item.time}
+                          {item.route || item.driver?.route || "Rota não informada"}
                         </span>
+                        <span>Chegada programada: {item.time}</span>
                         <small>
                           {registered
                             ? item.driver.location
