@@ -160,6 +160,54 @@ const stageValue = (driver, key) => {
   return null;
 };
 
+const operationalProgress = (driver) => {
+  if (!driver)
+    return { label: "Ainda não chegou", percent: 0, color: "red" };
+  if (driver.releasedAt || driver.status === "Veículo liberado")
+    return {
+      label: driver.manualRelease ? "Liberado manualmente" : "Liberado",
+      percent: 100,
+      color: "green",
+    };
+  if (
+    driver.documentationReceivedAt ||
+    driver.status === "Aguardando liberação de saída" ||
+    stageValue(driver, "romaneio") === "romaneio recebido"
+  )
+    return {
+      label: "Romaneio recebido • aguardando saída",
+      percent: 85,
+      color: "orange",
+    };
+  if (
+    driver.cargoFinishedAt ||
+    driver.status === "Aguardando documentação" ||
+    stageValue(driver, "carregamento") === "finalizado"
+  )
+    return {
+      label: "Carregado • aguardando romaneio",
+      percent: 70,
+      color: "orange",
+    };
+  if (
+    driver.dockedAt ||
+    driver.status === "Endocado" ||
+    stageValue(driver, "patio") === "endocado"
+  )
+    return {
+      label: "Aguardando carregamento • endocado",
+      percent: 35,
+      color: "yellow",
+    };
+  if (stageValue(driver, "chegadaCdc") === "aguardando liberação")
+    return {
+      label: "Chegada no CDC • aguardando liberação",
+      percent: 0,
+      color: "red",
+    };
+  return { label: "Aguardando no pátio", percent: 0, color: "red" };
+};
+
 function Stat({ icon: Icon, label, value, detail, tone }) {
   return (
     <article className="stat">
@@ -616,13 +664,30 @@ function Dashboard({ onScan, activeNav }) {
     [allDrivers],
   );
   const filtered = useMemo(
-    () =>
-      activeDrivers.filter((d) =>
-        `${d.plate || ""} ${d.name || ""} ${d.place || d.location || ""}`
+    () => {
+      const rows = scheduleRows.length
+        ? scheduleRows.map((item) => {
+            const record = allDrivers.find(
+              (driver) =>
+                driver.plate === item.plate && driver.programDate === item.date,
+            );
+            return {
+              ...record,
+              plate: item.plate,
+              route: item.route || record?.route || "",
+              plannedArrival: item.time,
+              plannedDeparture: item.departureTime,
+              registered: Boolean(record),
+            };
+          })
+        : allDrivers.map((driver) => ({ ...driver, registered: true }));
+      return rows.filter((driver) =>
+        `${driver.plate || ""} ${driver.name || ""} ${driver.route || ""} ${driver.location || ""}`
           .toLowerCase()
           .includes(query.toLowerCase()),
-      ),
-    [query, activeDrivers],
+      );
+    },
+    [query, scheduleRows, allDrivers],
   );
   const liveDocks = useMemo(
     () =>
@@ -1391,7 +1456,7 @@ function Dashboard({ onScan, activeNav }) {
             <div className="panel-head">
               <div>
                 <h2>Acompanhamento operacional</h2>
-                <p>Atualização automática pelo link do motorista e pelos QR Codes</p>
+                <p>Horários programados e evolução automática pelo link do motorista e pelos QR Codes</p>
               </div>
               <div className="search">
                 <Search size={16} />
@@ -1408,16 +1473,23 @@ function Dashboard({ onScan, activeNav }) {
                 {manualReleaseError}
               </p>
             ) : null}
+            <div className="progress-legend" aria-label="Legenda do farol operacional">
+              <span><i className="red" /> Pátio</span>
+              <span><i className="yellow" /> Endocado</span>
+              <span><i className="orange" /> Carregado</span>
+              <span><i className="green" /> Liberado</span>
+            </div>
             <div className="table-wrap">
               <table className="queue-table">
                 <thead>
                   <tr>
                     <th>ORDEM</th>
-                    <th>MOTORISTA</th>
+                    <th>VEÍCULO</th>
+                    <th>PROGRAMAÇÃO</th>
                     <th>LOCALIZAÇÃO</th>
                     <th>PERMANÊNCIA</th>
                     <th>ROTA</th>
-                    <th>STATUS</th>
+                    <th>FAROL OPERACIONAL</th>
                     <th>AÇÃO MANUAL</th>
                   </tr>
                 </thead>
@@ -1425,34 +1497,54 @@ function Dashboard({ onScan, activeNav }) {
                   {filtered.length ? (
                     filtered.map((d, index) => {
                       const mins = minutesWaiting(d, now);
+                      const progress = operationalProgress(d.registered ? d : null);
                       return (
-                        <tr key={d.plate}>
+                        <tr key={`${d.plate}-${d.plannedArrival || index}`}>
                           <td>
                             <b>#{index + 1}</b>
                           </td>
                           <td>
                             <b>{d.plate}</b>
-                            <span>{d.name || "Programação vinculada"}</span>
+                            <span>{d.name || (d.registered ? "Registro confirmado" : "Programação vinculada")}</span>
+                          </td>
+                          <td>
+                            <div className="scheduled-times">
+                              <span>Chegada <b>{d.plannedArrival || "—"}</b></span>
+                              <span>Saída <b>{d.plannedDeparture || "—"}</b></span>
+                            </div>
                           </td>
                           <td>
                             <b className="place">
                               <MapPin size={14} />
-                              {d.place || d.location}
+                              {d.place || d.location || "Ainda não chegou ao CDC"}
                             </b>
                             <span>{d.carrier || ""}</span>
                           </td>
                           <td>
-                            <span className={`time-chip ${timeTone(mins)}`}>
-                              {formatDuration(mins)}
-                            </span>
+                            {d.registered ? (
+                              <span className={`time-chip ${timeTone(mins)}`}>
+                                {formatDuration(mins)}
+                              </span>
+                            ) : "—"}
                           </td>
                           <td>{d.route || "—"}</td>
                           <td>
-                            <span
-                              className={`pill ${d.status?.includes("Aguardando") ? "wait" : "work"}`}
+                            <div
+                              className={`progress-signal ${progress.color}`}
+                              role="progressbar"
+                              aria-label={`${d.plate}: ${progress.label}`}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                              aria-valuenow={progress.percent}
                             >
-                              {d.status}
-                            </span>
+                              <div className="progress-signal-label">
+                                <b>{progress.label}</b>
+                                <strong>{progress.percent}%</strong>
+                              </div>
+                              <div className="progress-signal-track">
+                                <span style={{ width: `${progress.percent}%` }} />
+                              </div>
+                            </div>
                           </td>
                           <td>
                             {["Endocado", "Aguardando documentação", "Aguardando liberação de saída"].includes(d.status) ? (
@@ -1474,8 +1566,8 @@ function Dashboard({ onScan, activeNav }) {
                     })
                   ) : (
                     <tr>
-                      <td colSpan="7" className="empty-row">
-                        Nenhum motorista no pátio
+                      <td colSpan="8" className="empty-row">
+                        Nenhum veículo na programação vigente
                       </td>
                     </tr>
                   )}
