@@ -209,17 +209,27 @@ const operationalProgress = (driver) => {
 };
 
 function Stat({ icon: Icon, label, value, detail, tone }) {
+  const [flipped, setFlipped] = useState(false);
   return (
-    <article className="stat">
-      <div className={`stat-icon ${tone}`}>
-        <Icon size={21} />
-      </div>
-      <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
-        <small>{detail}</small>
-      </div>
-    </article>
+    <button
+      type="button"
+      className={`stat ${flipped ? "stat-flipped" : ""}`}
+      onClick={() => setFlipped((current) => !current)}
+      aria-label={`${label}: ${value}. ${detail}. Toque para virar o cartão.`}
+      aria-pressed={flipped}
+    >
+      <span className="stat-inner">
+        <span className="stat-face stat-front">
+          <span className={`stat-icon ${tone}`}><Icon size={23} /></span>
+          <span className="stat-content"><span className="stat-label">{label}</span><strong>{value}</strong><small>Toque para entender</small></span>
+        </span>
+        <span className="stat-face stat-back" aria-hidden="true">
+          <span className="stat-back-label">{label}</span>
+          <strong>{detail}</strong>
+          <small>Toque para voltar</small>
+        </span>
+      </span>
+    </button>
   );
 }
 function Sparkline({ values, tone }) {
