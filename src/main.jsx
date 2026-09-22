@@ -766,7 +766,7 @@ function Dashboard({ onScan, activeNav }) {
               const minutes = Math.ceil((departure.getTime() - now) / 60000);
               return { ...item, driver, minutes, departure };
             })
-            .filter(Boolean)
+            .filter((item) => item && item.departure.getTime() < now)
             .sort((a, b) => a.minutes - b.minutes),
     [
       scheduleRows,
@@ -1379,7 +1379,7 @@ function Dashboard({ onScan, activeNav }) {
                 <input
                   value={scheduleQuery}
                   onChange={(e) => setScheduleQuery(e.target.value)}
-                  placeholder="Pesquisar placa na programação"
+                  placeholder="Pesquisar placa atrasada"
                 />
               </div>
             ) : null}
@@ -1394,32 +1394,14 @@ function Dashboard({ onScan, activeNav }) {
                 {filteredDepartures.map((item) => {
                   const registered = Boolean(item.driver);
                   const alertLabel = registered
-                    ? item.minutes <= 0
-                      ? "ENDOCAMENTO ATRASADO"
-                      : item.minutes <= 20
-                        ? `ENDOCAR EM ${item.minutes} MIN`
-                        : `ENDOCAMENTO DENTRO DO HORÁRIO • FALTAM ${item.minutes} MIN`
-                    : item.minutes <= 0
-                      ? "ATRASO NA CHEGADA AO CDC"
-                      : item.minutes <= 20
-                        ? `CHEGADA PREVISTA EM ${item.minutes} MIN`
-                        : `CHEGADA DENTRO DO HORÁRIO • FALTAM ${item.minutes} MIN`;
+                    ? "ENDOCAMENTO ATRASADO"
+                    : "ATRASO NA CHEGADA AO CDC";
                   return (
                     <article
                       key={`${item.plate}-${item.time}`}
-                      className={
-                        item.minutes <= 0
-                          ? "departure-late"
-                          : item.minutes <= 20
-                            ? "departure-soon"
-                            : "departure-ontime"
-                      }
+                      className="departure-late"
                     >
-                      {item.minutes > 20 ? (
-                        <CircleCheck size={20} />
-                      ) : (
-                        <AlertTriangle size={20} />
-                      )}
+                      <AlertTriangle size={20} />
                       <div className="departure-alert-content">
                         <strong className="departure-alert-plate">{item.plate}</strong>
                         <b>{alertLabel}</b>
@@ -1443,7 +1425,7 @@ function Dashboard({ onScan, activeNav }) {
               </p>
             ) : scheduleLink && !scheduleError && !scheduleLoading ? (
               <p className="schedule-ok">
-                <CircleCheck size={16} /> Nenhum alerta ativo para a programação
+                <CircleCheck size={16} /> Nenhum veículo atrasado na programação
                 vigente.
               </p>
             ) : null}
