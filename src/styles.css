@@ -598,6 +598,61 @@ td span {
     width: 100%;
   }
 }
+
+/* Alertas atrasados em faixas horizontais com até 1 cm de altura. */
+.departure-alerts {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 11px;
+  padding: 0 7px 7px 0;
+}
+.departure-alerts .departure-late {
+  height: 37px;
+  min-height: 37px;
+  max-height: 37px;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 10px;
+}
+.departure-alerts .departure-late > svg { flex: 0 0 15px; width: 15px; height: 15px; }
+.departure-alerts .departure-alert-content {
+  display: grid;
+  grid-template-columns: minmax(75px, .55fr) minmax(160px, 1.15fr) minmax(100px, 1fr) minmax(140px, 1fr) minmax(175px, 1.35fr);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.departure-alerts .departure-alert-content > * {
+  display: block;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.departure-alerts .departure-alert-plate { font-size: 14px; line-height: 1.1; }
+.departure-alerts .departure-alert-reason,
+.departure-alerts .departure-alert-route,
+.departure-alerts .departure-alert-time,
+.departure-alerts .departure-alert-location { font-size: 10px; line-height: 1.2; }
+@media (max-width: 760px) {
+  .departure-alerts .departure-late { gap: 5px; padding: 3px 6px; }
+  .departure-alerts .departure-late > svg { display: none; }
+  .departure-alerts .departure-alert-content {
+    grid-template-columns: minmax(65px, .62fr) minmax(100px, 1.2fr) minmax(90px, 1fr);
+    grid-template-rows: 15px 15px;
+    column-gap: 5px;
+    row-gap: 0;
+  }
+  .departure-alerts .departure-alert-plate { grid-row: 1 / 3; font-size: 11px; }
+  .departure-alerts .departure-alert-reason { grid-column: 2; grid-row: 1; }
+  .departure-alerts .departure-alert-time { grid-column: 2; grid-row: 2; }
+  .departure-alerts .departure-alert-route { grid-column: 3; grid-row: 1; }
+  .departure-alerts .departure-alert-location { grid-column: 3; grid-row: 2; }
+  .departure-alerts .departure-alert-reason,
+  .departure-alerts .departure-alert-route,
+  .departure-alerts .departure-alert-time,
+  .departure-alerts .departure-alert-location { font-size: 8px; }
+}
 @media (max-width: 430px) {
   .stats {
     grid-template-columns: 1fr 1fr;
