@@ -989,12 +989,12 @@ function Dashboard() {
                       <AlertTriangle size={20} />
                       <div className="departure-alert-content">
                         <strong className="departure-alert-plate">{item.plate}</strong>
-                        <b>{alertLabel}</b>
-                        <span>
+                        <b className="departure-alert-reason" title={alertLabel}>{alertLabel}</b>
+                        <span className="departure-alert-route" title={item.route || item.driver?.route || "Rota não informada"}>
                           {item.route || item.driver?.route || "Rota não informada"}
                         </span>
-                        <span>Chegada programada: {item.time}</span>
-                        <small>
+                        <span className="departure-alert-time">Chegada programada: {item.time}</span>
+                        <small className="departure-alert-location" title={registered ? item.driver.location : "Ainda não registrado na portaria"}>
                           {registered
                             ? item.driver.location
                             : "Ainda não registrado na portaria"}
