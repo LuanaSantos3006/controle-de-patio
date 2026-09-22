@@ -2253,3 +2253,24 @@ html, body, #root, .app, .app main { background: #10213e; }
   outline-offset: 3px;
 }
 .driver-stages .driver-stage-options button:disabled:not(.selected) { opacity: .58; }
+
+/* Tempo de permanência legível no painel escuro. */
+.app .live .queue-table td > .time-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 84px;
+  min-height: 34px;
+  margin: 0;
+  padding: 7px 11px;
+  border-radius: 9px;
+  border: 1px solid currentColor;
+  font: 800 13px/1 Manrope, sans-serif;
+  white-space: nowrap;
+  box-shadow: 0 4px 10px #03112655;
+}
+.app .live .queue-table td > .time-chip svg { flex: 0 0 auto; }
+.app .live .queue-table td > .time-chip.time-green { background: #e0f7eb; color: #075f42; }
+.app .live .queue-table td > .time-chip.time-yellow { background: #fff2d2; color: #915200; }
+.app .live .queue-table td > .time-chip.time-red { background: #ffe5e2; color: #ae2024; }
