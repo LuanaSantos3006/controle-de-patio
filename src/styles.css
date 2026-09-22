@@ -2274,3 +2274,13 @@ html, body, #root, .app, .app main { background: #10213e; }
 .app .live .queue-table td > .time-chip.time-green { background: #e0f7eb; color: #075f42; }
 .app .live .queue-table td > .time-chip.time-yellow { background: #fff2d2; color: #915200; }
 .app .live .queue-table td > .time-chip.time-red { background: #ffe5e2; color: #ae2024; }
+
+.app .live .queue-table td > .time-chip {
+  gap: 5px;
+  min-width: 0;
+  min-height: 25px;
+  padding: 5px 7px;
+  border-radius: 7px;
+  font: 800 11px/1 Manrope, sans-serif;
+  box-shadow: none;
+}
