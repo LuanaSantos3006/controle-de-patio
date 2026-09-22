@@ -1611,7 +1611,10 @@ function Scan({ onBack }) {
   const [finishPending, setFinishPending] = useState(false);
   const [resultLabel, setResultLabel] = useState("");
   const params = new URLSearchParams(locationSearch());
-  const location = params.get("local") || "Próximo da Doca 52";
+  const arrivalLink = params.get("chegada") === "cdc";
+  const location = arrivalLink
+    ? "Portaria"
+    : params.get("local") || "Próximo da Doca 52";
   const dockId = params.get("doca");
   const isArrival = location === "Portaria";
   const eventName = isArrival
@@ -1652,6 +1655,18 @@ function Scan({ onBack }) {
       const presenceRef = doc(db, "presencas", normalized);
       const currentSnap = await getDoc(presenceRef);
       const current = currentSnap.exists() ? currentSnap.data() : null;
+      if (isArrival && current?.programDate === programmed.date) {
+        if (
+          current.arrivalAt ||
+          current.status === "Endocado" ||
+          current.status === "Veículo liberado"
+        ) {
+          setError(
+            "A chegada deste veículo já foi registrada nesta programação. Confira o painel antes de tentar novamente.",
+          );
+          return;
+        }
+      }
       if (
         dockId &&
         current?.status === "Endocado" &&
@@ -1736,7 +1751,7 @@ function Scan({ onBack }) {
       <div className="scan-card">
         <div className="scan-brand">
           <span>
-            <QrCode />
+            {arrivalLink ? <CarFront /> : <QrCode />}
           </span>
           <b>Controle de Pátio</b>
         </div>
@@ -1804,14 +1819,26 @@ function Scan({ onBack }) {
           </div>
         ) : (
           <>
-            <p className="eyebrow">CONFIRMAÇÃO DE LOCALIZAÇÃO</p>
+            <p className="eyebrow">
+              {arrivalLink ? "REGISTRO DE CHEGADA" : "CONFIRMAÇÃO DE LOCALIZAÇÃO"}
+            </p>
             <h1>
-              Você está em
-              <br />
-              <em>{eventName}</em>
+              {arrivalLink ? (
+                <>
+                  Chegou ao <em>CDC?</em>
+                </>
+              ) : (
+                <>
+                  Você está em
+                  <br />
+                  <em>{eventName}</em>
+                </>
+              )}
             </h1>
             <p className="scan-help">
-              Informe somente a placa e a rota para confirmar sua localização.
+              {arrivalLink
+                ? "Com o veículo parado na entrada, informe a placa e a rota para registrar sua chegada no CDC."
+                : "Informe somente a placa e a rota para confirmar sua localização."}
             </p>
             <label>Placa do veículo</label>
             <input
@@ -1836,12 +1863,17 @@ function Scan({ onBack }) {
               className="primary full"
               onClick={confirm}
             >
-              {saving ? "Verificando..." : "Confirmar localização"}{" "}
+              {saving
+                ? "Verificando..."
+                : arrivalLink
+                  ? "Registrar chegada no CDC"
+                  : "Confirmar localização"}{" "}
               <ChevronRight size={18} />
             </button>
             <small className="safe">
-              Na segunda leitura da mesma doca, você poderá finalizar a
-              operação.
+              {arrivalLink
+                ? "Use este link somente ao chegar ao CDC. Depois, siga as orientações de localização no pátio e na doca."
+                : "Na segunda leitura da mesma doca, você poderá finalizar a operação."}
             </small>
           </>
         )}
@@ -1855,7 +1887,10 @@ function locationSearch() {
 
 function App() {
   const [screen, setScreen] = useState(
-    locationSearch().includes("local=") ? "scan" : "admin",
+    new URLSearchParams(locationSearch()).has("local") ||
+      new URLSearchParams(locationSearch()).get("chegada") === "cdc"
+      ? "scan"
+      : "admin",
   );
   const [open, setOpen] = useState(false);
   const [activeNav, setActiveNav] = useState("Visão geral");
