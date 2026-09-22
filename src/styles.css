@@ -1704,7 +1704,7 @@ td span {
 .stage-empty { padding: 14px 0; }
 .driver-page {
   align-items: start;
-  background: linear-gradient(155deg, #093c83 0%, #0756b2 45%, #071c42 100%);
+  background: #071b3b;
 }
 .driver-card {
   width: min(100%, 780px);
@@ -1714,16 +1714,34 @@ td span {
   color: #fff;
 }
 .driver-card .scan-brand { border-bottom-color: #ffffff40; }
-.driver-card .scan-brand span { background: #fff; color: #096bdd; }
+.driver-card .scan-brand span { background: #0e315f; color: #fff; }
 .driver-card > .eyebrow { color: #bfe5ff; }
 .driver-card h1 { color: #fff; }
 .driver-card .scan-help { color: #e3f1ff; }
 .driver-entry {
   padding: 22px;
   border-radius: 18px;
+  border: 1px solid #3b5b82;
+  background: transparent;
+  color: #fff;
+}
+.driver-entry .plate-input,
+.driver-entry .route-input {
+  background: #0b2851;
+  border-color: #5b7ea6;
+  color: #fff;
+}
+.driver-entry .plate-input::placeholder,
+.driver-entry .route-input::placeholder { color: #a7bdd6; }
+.driver-entry .primary {
   background: #fff;
-  color: #193354;
-  box-shadow: 0 16px 35px #04183238;
+  color: #075cab;
+  box-shadow: none;
+}
+.driver-entry .primary:disabled { background: #fff; color: #075cab; opacity: .65; }
+.driver-card .form-error {
+  background: #17385a;
+  color: #ffd0c9;
 }
 .driver-identification {
   display: flex;
@@ -1733,15 +1751,17 @@ td span {
   padding: 14px;
   margin-bottom: 18px;
   border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 12px 30px #0418322b;
+  border: 1px solid #3b5b82;
+  background: transparent;
 }
-.driver-identification strong { font-size: 22px; color: #0d3970; }
-.driver-identification span { font-size: 11px; color: #55708e; overflow-wrap: anywhere; }
+.driver-identification strong { font-size: 22px; color: #fff; }
+.driver-identification span { font-size: 11px; color: #d2e3f7; overflow-wrap: anywhere; }
 .driver-identification button {
   margin-left: auto;
   border: 0;
-  background: transparent;
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: #fff;
   color: #075cab;
   font-weight: 800;
   cursor: pointer;
@@ -1749,11 +1769,10 @@ td span {
 .driver-stages { display: grid; gap: 12px; }
 .driver-stage {
   padding: 16px;
-  border: 1px solid #ffffff;
+  border: 1px solid #3b5b82;
   border-radius: 14px;
-  background: #fff;
-  color: #193354;
-  box-shadow: 0 12px 30px #04183226;
+  background: transparent;
+  color: #fff;
 }
 .driver-stage-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .driver-stage-header > span {
@@ -1767,39 +1786,41 @@ td span {
   font-size: 12px;
   font-weight: 800;
 }
-.driver-stage h2 { margin: 0; font-size: 15px; color: #173657; }
-.driver-stage-header p { margin: 3px 0 0; font-size: 11px; color: #60758d; }
+.driver-stage h2 { margin: 0; font-size: 15px; color: #fff; }
+.driver-stage-header p { margin: 3px 0 0; font-size: 11px; color: #c5d8ed; }
 .driver-stage-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .driver-stage-options button {
   min-height: 43px;
   padding: 9px;
-  border: 1px solid #c9d8e8;
+  border: 2px solid #fff;
   border-radius: 9px;
-  background: #f0f6ff;
-  color: #224264;
+  background: #fff;
+  color: #075cab;
   font-size: 12px;
   font-weight: 800;
   cursor: pointer;
   text-transform: capitalize;
 }
 .driver-stage-options button.selected {
-  border-color: #076fdc;
-  background: #075cab;
-  color: #fff;
+  border-color: #69caff;
+  background: #fff;
+  color: #075cab;
+  box-shadow: 0 0 0 2px #69caff;
 }
-.driver-stage-options button:disabled { opacity: .55; cursor: not-allowed; }
-.driver-stage small { display: block; margin-top: 8px; color: #74869a; font-size: 10px; }
+.driver-stage-options button:disabled { opacity: .7; cursor: not-allowed; }
+.driver-stage small { display: block; margin-top: 8px; color: #c5d8ed; font-size: 10px; }
 .driver-dock-label { margin: 0 0 10px !important; }
 .driver-dock-label select {
   display: block;
   width: 100%;
   margin-top: 5px;
   padding: 10px;
-  border: 1px solid #c9d8e8;
+  border: 1px solid #5b7ea6;
   border-radius: 8px;
-  background: #fff;
+  background: #0b2851;
+  color: #fff;
 }
-.driver-message { padding: 11px; border-radius: 9px; background: #e6f7f1; color: #087659; font-size: 12px; font-weight: 700; }
+.driver-message { padding: 11px; border-radius: 9px; background: #12395f; color: #c9ffe5; font-size: 12px; font-weight: 700; }
 .documentation-total {
   display: inline-flex;
   border-radius: 999px;
