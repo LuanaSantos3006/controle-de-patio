@@ -73,24 +73,24 @@ const initialDrivers = [
 ];
 
 const docks = [
-  { id: "52" },
-  { id: "53" },
-  { id: "54" },
-  { id: "55" },
-  { id: "56" },
-  { id: "57" },
-  { id: "58", blocked: true },
-  { id: "59-A" },
-  { id: "59-B" },
-  { id: "60" },
-  { id: "61" },
-  { id: "62" },
-  { id: "63-A" },
-  { id: "63-B" },
-  { id: "64" },
-  { id: "65" },
-  { id: "66" },
-  { id: "67" },
+  { id: "52", bases: ["IPR"] },
+  { id: "53", bases: ["GOS", "SVM"] },
+  { id: "54", bases: ["MAU"] },
+  { id: "55", bases: ["GLS", "GUA"] },
+  { id: "56", bases: ["MRP", "ATB"] },
+  { id: "57", bases: ["JDP", "JTT", "JSS"] },
+  { id: "58", bases: ["SBD", "AGFI"], blocked: true },
+  { id: "59-A", bases: ["GTS", "MBI"] },
+  { id: "59-B", bases: ["LBD"] },
+  { id: "60", bases: ["LBD"] },
+  { id: "61", bases: ["VLM", "VLM"] },
+  { id: "62", bases: ["JDS", "GHO"] },
+  { id: "63-A", bases: ["CBL", "CSA"] },
+  { id: "63-B", bases: ["CDR", "JANI"] },
+  { id: "64", bases: ["STD", "RBI"] },
+  { id: "65", bases: ["STDI"] },
+  { id: "66", bases: ["ACM"] },
+  { id: "67", bases: ["AET", "BCC"] },
 ];
 
 const nav = [
@@ -351,6 +351,11 @@ function DockMap({ liveDocks, expanded, onExpand, onClose }) {
               <div className="dock-number">
                 <Truck size={17} />
                 <strong>{d.id}</strong>
+              </div>
+              <div className="dock-bases">
+                {d.bases.map((base, index) => (
+                  <span key={`${base}-${index}`}>{base}</span>
+                ))}
               </div>
               {active ? (
                 <div className="dock-live">
