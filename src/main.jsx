@@ -26,6 +26,7 @@ import {
   doc,
   getDoc,
   onSnapshot,
+  runTransaction,
   serverTimestamp,
   setDoc,
 } from "firebase/firestore";
@@ -97,6 +98,67 @@ const nav = [
   ["Visão geral", LayoutDashboard],
   ["Relatórios", BarChart3],
 ];
+
+const driverStages = [
+  {
+    key: "chegadaCdc",
+    label: "Chegada no CDC",
+    waiting: "aguardando liberação",
+    complete: "liberada",
+    timestamp: "arrivalAt",
+  },
+  {
+    key: "patio",
+    label: "Chegada no pátio",
+    waiting: "aguardando doca",
+    complete: "endocado",
+    timestamp: "dockedAt",
+  },
+  {
+    key: "carregamento",
+    label: "Carregamento",
+    waiting: "aguardando carregamento",
+    complete: "finalizado",
+    timestamp: "cargoFinishedAt",
+  },
+  {
+    key: "romaneio",
+    label: "Romaneio",
+    waiting: "aguardando romaneio",
+    complete: "romaneio recebido",
+    timestamp: "documentationReceivedAt",
+  },
+  {
+    key: "saida",
+    label: "Saída",
+    waiting: "aguardando liberação",
+    complete: "saída liberada",
+    timestamp: "releasedAt",
+  },
+];
+
+const stageValue = (driver, key) => {
+  if (!driver) return null;
+  if (driver.progress?.[key]?.value) return driver.progress[key].value;
+  if (key === "chegadaCdc" && driver.arrivalAt) return "liberada";
+  if (key === "patio") {
+    if (driver.dockedAt) return "endocado";
+    if (driver.arrivalAt) return "aguardando doca";
+  }
+  if (key === "carregamento") {
+    if (driver.cargoFinishedAt) return "finalizado";
+    if (driver.dockedAt) return "aguardando carregamento";
+  }
+  if (key === "romaneio") {
+    if (driver.documentationReceivedAt) return "romaneio recebido";
+    if (driver.cargoFinishedAt) return "aguardando romaneio";
+  }
+  if (key === "saida") {
+    if (driver.releasedAt) return "saída liberada";
+    if (driver.documentationReceivedAt) return "aguardando liberação";
+  }
+  return null;
+};
 
 function Stat({ icon: Icon, label, value, detail, tone }) {
   return (
@@ -364,6 +426,9 @@ function DockMap({ liveDocks, expanded, onExpand, onClose }) {
                   {active.status === "Aguardando documentação" ? (
                     <span>Aguardando romaneio</span>
                   ) : null}
+                  {active.status === "Aguardando liberação de saída" ? (
+                    <span>Romaneio recebido • aguardando saída</span>
+                  ) : null}
                 </div>
               ) : (
                 <div className="dock-route-empty">Sem veículo registrado</div>
@@ -566,7 +631,8 @@ function Dashboard({ onScan, activeNav }) {
           .filter(
             (d) =>
               (d.status === "Endocado" ||
-                d.status === "Aguardando documentação") &&
+                d.status === "Aguardando documentação" ||
+                d.status === "Aguardando liberação de saída") &&
               d.dockId,
           )
           .map((d) => [d.dockId, d]),
@@ -590,6 +656,26 @@ function Dashboard({ onScan, activeNav }) {
         (timestampMillis(b.documentationReceivedAt) || 0) -
         (timestampMillis(a.documentationReceivedAt) || 0),
     );
+  const [stageQuery, setStageQuery] = useState("");
+  const stageRows = useMemo(() => {
+    const rows = scheduleRows.length
+      ? scheduleRows.map((item) => ({
+          plate: item.plate,
+          route: item.route,
+          record: allDrivers.find(
+            (driver) =>
+              driver.plate === item.plate && driver.programDate === item.date,
+          ),
+        }))
+      : allDrivers.map((driver) => ({
+          plate: driver.plate,
+          route: driver.route,
+          record: driver,
+        }));
+    return rows.filter((item) =>
+      item.plate.includes(stageQuery.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()),
+    );
+  }, [scheduleRows, allDrivers, stageQuery]);
   const docked = activeDrivers.filter((d) => d.status === "Endocado").length;
   const released = allDrivers.filter(
     (d) => d.status === "Veículo liberado",
@@ -605,6 +691,7 @@ function Dashboard({ onScan, activeNav }) {
               if (
                 record?.status === "Endocado" ||
                 record?.status === "Aguardando documentação" ||
+                record?.status === "Aguardando liberação de saída" ||
                 record?.status === "Veículo liberado"
               )
                 return null;
@@ -1037,7 +1124,7 @@ function Dashboard({ onScan, activeNav }) {
   };
   const releaseManually = async (driver) => {
     if (
-      !["Endocado", "Aguardando documentação"].includes(driver.status) ||
+      !["Endocado", "Aguardando documentação", "Aguardando liberação de saída"].includes(driver.status) ||
       !window.confirm(
         `Confirmar a saída do veículo ${driver.plate} da Doca ${driver.dockId}?`,
       )
@@ -1050,11 +1137,16 @@ function Dashboard({ onScan, activeNav }) {
         plate: driver.plate,
         route: driver.route || "",
         status: "Veículo liberado",
-        location: "Liberação manual pelo administrador — documentação não confirmada",
+        location: driver.documentationReceivedAt
+          ? "Saída liberada manualmente pelo administrador"
+          : "Liberação manual pelo administrador — documentação não confirmada",
         dockId: null,
         releasedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         manualRelease: true,
+        progress: {
+          saida: { value: "saída liberada", at: serverTimestamp() },
+        },
       };
       await setDoc(doc(db, "presencas", driver.plate), payload, {
         merge: true,
@@ -1299,7 +1391,7 @@ function Dashboard({ onScan, activeNav }) {
             <div className="panel-head">
               <div>
                 <h2>Acompanhamento operacional</h2>
-                <p>Atualização automática pelas leituras dos QR Codes</p>
+                <p>Atualização automática pelo link do motorista e pelos QR Codes</p>
               </div>
               <div className="search">
                 <Search size={16} />
@@ -1363,7 +1455,7 @@ function Dashboard({ onScan, activeNav }) {
                             </span>
                           </td>
                           <td>
-                            {["Endocado", "Aguardando documentação"].includes(d.status) ? (
+                            {["Endocado", "Aguardando documentação", "Aguardando liberação de saída"].includes(d.status) ? (
                               <button
                                 className="manual-release-button"
                                 disabled={manualReleasePlate === d.plate}
@@ -1433,6 +1525,65 @@ function Dashboard({ onScan, activeNav }) {
       ) : null}
       {activeNav === "Visão geral" ? (
         <>
+          <section className="panel stage-panel">
+            <div className="panel-head">
+              <div>
+                <p className="eyebrow">ETAPAS • TEMPO REAL</p>
+                <h2>Situação de cada veículo</h2>
+                <p>Os registros do motorista aparecem aqui automaticamente.</p>
+              </div>
+              <div className="search">
+                <Search size={16} />
+                <input
+                  value={stageQuery}
+                  onChange={(e) => setStageQuery(e.target.value)}
+                  placeholder="Buscar placa"
+                />
+              </div>
+            </div>
+            <div className="stage-table-wrap">
+              <div className="stage-table-head">
+                <span>VEÍCULO</span>
+                {driverStages.map((stage) => (
+                  <span key={stage.key}>{stage.label}</span>
+                ))}
+              </div>
+              {stageRows.length ? (
+                stageRows.map((item) => (
+                  <div className="stage-table-row" key={`${item.plate}-${item.record?.programDate || "programado"}`}>
+                    <div className="stage-table-vehicle">
+                      <b>{item.plate}</b>
+                      <small>{item.route || item.record?.route || "Rota não informada"}</small>
+                    </div>
+                    {driverStages.map((stage) => {
+                      const value = stageValue(item.record, stage.key);
+                      const at = item.record?.progress?.[stage.key]?.at ||
+                        (value === stage.complete ? item.record?.[stage.timestamp] : null);
+                      return (
+                        <div className="stage-table-cell" data-label={stage.label} key={stage.key}>
+                          <span className={`stage-badge ${value === stage.complete ? "completed" : value ? "waiting" : "missing"}`}>
+                            {value || "Sem registro"}
+                          </span>
+                          {at ? (
+                            <small>
+                              {new Date(timestampMillis(at)).toLocaleTimeString("pt-BR", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </small>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))
+              ) : (
+                <p className="documentation-empty stage-empty">
+                  Nenhum veículo encontrado na programação.
+                </p>
+              )}
+            </div>
+          </section>
           <section className="panel documentation-panel">
             <div className="panel-head">
               <div>
@@ -1489,7 +1640,11 @@ function Dashboard({ onScan, activeNav }) {
                           minute: "2-digit",
                         })}
                       </span>
-                      <strong>Veículo liberado</strong>
+                      <strong>
+                        {driver.status === "Veículo liberado"
+                          ? "Saída liberada"
+                          : "Aguardando liberação de saída"}
+                      </strong>
                     </p>
                   ))
                 ) : (
@@ -1699,6 +1854,272 @@ function Dashboard({ onScan, activeNav }) {
   );
 }
 
+function DriverPortal() {
+  const params = new URLSearchParams(locationSearch());
+  const [plate, setPlate] = useState(
+    params.get("placa")?.replace(/[^a-zA-Z0-9]/g, "").slice(0, 7) || "",
+  );
+  const [route, setRoute] = useState("");
+  const [programmed, setProgrammed] = useState(null);
+  const [record, setRecord] = useState(null);
+  const [dock, setDock] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!programmed || !db) return;
+    return onSnapshot(doc(db, "presencas", programmed.plate), (snap) => {
+      const current = snap.exists() ? snap.data() : null;
+      setRecord(current?.programDate === programmed.date ? current : null);
+      if (current?.programDate === programmed.date && current.dockId)
+        setDock(current.dockId);
+    });
+  }, [programmed]);
+
+  const identify = async () => {
+    setError("");
+    setMessage("");
+    setLoading(true);
+    try {
+      const normalized = plate.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+      const snap = await getDoc(doc(db, "configuracoes", "programacao"));
+      const link = snap.exists()
+        ? snap.data().link || ""
+        : localStorage.getItem(SCHEDULE_LINK_KEY) || "";
+      const vehicle = await findProgrammedVehicle(link, normalized);
+      if (!vehicle)
+        throw new Error("Placa não encontrada na programação vigente.");
+      setPlate(normalized);
+      setRoute(vehicle.route || route);
+      setProgrammed(vehicle);
+    } catch (e) {
+      setError(e?.message || "Não foi possível consultar a programação.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateStage = async (stage, value) => {
+    setError("");
+    setMessage("");
+    if (stage.key === "patio" && value === stage.complete && !dock) {
+      setError("Selecione a doca antes de confirmar o endocamento.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const stageIndex = driverStages.findIndex((item) => item.key === stage.key);
+      const presenceRef = doc(db, "presencas", programmed.plate);
+      const movementRef = doc(collection(db, "movimentacoes"));
+      await runTransaction(db, async (transaction) => {
+        const snapshot = await transaction.get(presenceRef);
+        const existing = snapshot.exists() ? snapshot.data() : null;
+        const current = existing?.programDate === programmed.date ? existing : null;
+        if (stageIndex > 0) {
+          const previous = driverStages[stageIndex - 1];
+          if (stageValue(current, previous.key) !== previous.complete)
+            throw new Error(`Conclua ${previous.label.toLowerCase()} antes desta etapa.`);
+        }
+        if (current?.progress?.[stage.key]?.value === value)
+          throw new Error("Essa opção já está registrada para o veículo.");
+
+        const progress = Object.fromEntries(
+          driverStages.slice(stageIndex + 1).map((item) => [item.key, null]),
+        );
+        progress[stage.key] = { value, at: serverTimestamp() };
+        const reset = Object.fromEntries(
+          driverStages
+            .slice(stageIndex + 1)
+            .map((item) => [item.timestamp, null]),
+        );
+        if (stageIndex === 0 && !current) {
+          reset.dockedAt = null;
+          reset.cargoFinishedAt = null;
+          reset.documentationReceivedAt = null;
+          reset.releasedAt = null;
+        }
+        const statuses = {
+          chegadaCdc: "Aguardando",
+          patio: value === "endocado" ? "Endocado" : "Aguardando",
+          carregamento:
+            value === "finalizado" ? "Aguardando documentação" : "Endocado",
+          romaneio:
+            value === "romaneio recebido"
+              ? "Aguardando liberação de saída"
+              : "Aguardando documentação",
+          saida:
+            value === "saída liberada"
+              ? "Veículo liberado"
+              : "Aguardando liberação de saída",
+        };
+        const locations = {
+          chegadaCdc: `Chegada no CDC — ${value}`,
+          patio: value === "endocado" ? `Endocado — Doca ${dock}` : "Pátio — aguardando doca",
+          carregamento:
+            value === "finalizado"
+              ? `Doca ${current?.dockId || dock} — aguardando romaneio`
+              : `Doca ${current?.dockId || dock} — aguardando carregamento`,
+          romaneio:
+            value === "romaneio recebido"
+              ? "Romaneio recebido — aguardando liberação de saída"
+              : "Aguardando romaneio",
+          saida:
+            value === "saída liberada"
+              ? "Saída liberada"
+              : "Aguardando liberação de saída",
+        };
+        const payload = {
+          plate: programmed.plate,
+          route: (programmed.route || route).toUpperCase(),
+          programDate: programmed.date,
+          status: statuses[stage.key],
+          location: locations[stage.key],
+          dockId:
+            stage.key === "saida" && value === "saída liberada"
+              ? null
+              : stage.key === "patio"
+                ? value === "endocado"
+                  ? dock
+                  : null
+                : stage.key === "chegadaCdc"
+                  ? null
+                  : current?.dockId || dock || null,
+          ...reset,
+          ...(stage.key === "chegadaCdc"
+            ? { arrivalAt: current?.arrivalAt || serverTimestamp() }
+            : value === stage.complete
+              ? { [stage.timestamp]: serverTimestamp() }
+              : { [stage.timestamp]: null }),
+          ...(stage.key === "chegadaCdc" ? { manualRelease: false } : {}),
+          progress,
+          updatedAt: serverTimestamp(),
+        };
+        transaction.set(presenceRef, payload, { merge: true });
+        transaction.set(movementRef, {
+          plate: programmed.plate,
+          route: payload.route,
+          programDate: programmed.date,
+          stage: stage.label,
+          value,
+          event: "ATUALIZACAO_ETAPA_MOTORISTA",
+          createdAt: serverTimestamp(),
+        });
+      });
+      setMessage(`${stage.label}: ${value}. Registro atualizado no painel.`);
+    } catch (e) {
+      setError(e?.message || "Não foi possível atualizar. Tente novamente.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="scan-page driver-page">
+      <div className="scan-card driver-card">
+        <div className="scan-brand">
+          <span><CarFront /></span>
+          <b>Controle de Pátio</b>
+        </div>
+        <p className="eyebrow">ACOMPANHAMENTO DO MOTORISTA</p>
+        <h1>Atualize sua operação no CDC</h1>
+        <p className="scan-help">
+          Com o veículo parado, informe a placa e a rota. Selecione a opção que
+          corresponde à situação atual em cada etapa.
+        </p>
+        {!programmed ? (
+          <>
+            <label>Placa do veículo</label>
+            <input
+              className="plate-input"
+              maxLength="7"
+              value={plate}
+              onChange={(e) => setPlate(e.target.value.replace(/[^a-zA-Z0-9]/g, ""))}
+              placeholder="ABC1D23"
+            />
+            <label>Rota</label>
+            <input
+              className="route-input"
+              value={route}
+              onChange={(e) => setRoute(e.target.value)}
+              placeholder="Informe a rota"
+            />
+            {error ? <p className="form-error">{error}</p> : null}
+            <button
+              className="primary full"
+              disabled={plate.length !== 7 || route.trim().length < 2 || loading}
+              onClick={identify}
+            >
+              {loading ? "Consultando..." : "Consultar operação"}
+              <ChevronRight size={18} />
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="driver-identification">
+              <strong>{programmed.plate}</strong>
+              <span>{programmed.route || route} • Programação {programmed.date}</span>
+              <button onClick={() => { setProgrammed(null); setRecord(null); setDock(""); setError(""); setMessage(""); }}>
+                Trocar placa
+              </button>
+            </div>
+            {error ? <p className="form-error">{error}</p> : null}
+            {message ? <p className="driver-message">{message}</p> : null}
+            <div className="driver-stages">
+              {driverStages.map((stage, index) => {
+                const currentValue = stageValue(record, stage.key);
+                const prior = driverStages[index - 1];
+                const enabled = !prior || stageValue(record, prior.key) === prior.complete;
+                const at = record?.progress?.[stage.key]?.at || record?.[stage.timestamp];
+                return (
+                  <section className="driver-stage" key={stage.key}>
+                    <div className="driver-stage-header">
+                      <span>{String(index + 1).padStart(2, "0")}</span>
+                      <div>
+                        <h2>{stage.label}</h2>
+                        <p>
+                          {currentValue ? `Atual: ${currentValue}` : "Sem registro"}
+                          {at ? ` • ${new Date(timestampMillis(at)).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    {stage.key === "patio" && enabled ? (
+                      <label className="driver-dock-label">
+                        Doca para endocamento
+                        <select value={dock} onChange={(e) => setDock(e.target.value)}>
+                          <option value="">Selecione a doca</option>
+                          {docks.filter((item) => !item.blocked).map((item) => (
+                            <option key={item.id} value={item.id}>{item.id}</option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : null}
+                    <div className="driver-stage-options">
+                      {[stage.waiting, stage.complete].map((value) => (
+                        <button
+                          key={value}
+                          className={currentValue === value ? "selected" : ""}
+                          aria-pressed={currentValue === value}
+                          disabled={!enabled || saving}
+                          onClick={() => updateStage(stage, value)}
+                        >
+                          {value}
+                        </button>
+                      ))}
+                    </div>
+                    {!enabled ? <small>Conclua a etapa anterior para continuar.</small> : null}
+                  </section>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Scan() {
   const [plate, setPlate] = useState(
     () =>
@@ -1767,7 +2188,8 @@ function Scan() {
           current.status !== "Aguardando documentação"
         ) {
           throw new Error(
-            current?.status === "Veículo liberado"
+            current?.status === "Veículo liberado" ||
+            current?.status === "Aguardando liberação de saída"
               ? "O romaneio deste veículo já foi confirmado."
               : "Este veículo ainda não está aguardando documentação. Finalize a carga ou descarga na doca antes de confirmar o romaneio.",
           );
@@ -1782,6 +2204,7 @@ function Scan() {
           current.arrivalAt ||
           current.status === "Endocado" ||
           current.status === "Aguardando documentação" ||
+          current.status === "Aguardando liberação de saída" ||
           current.status === "Veículo liberado"
         ) {
           setError(
@@ -1818,6 +2241,12 @@ function Scan() {
       ) {
         throw new Error("Este veículo já foi liberado nesta programação.");
       }
+      if (
+        current?.programDate === programmed.date &&
+        current?.status === "Aguardando liberação de saída"
+      ) {
+        throw new Error("O romaneio foi recebido. Registre a saída no link do motorista.");
+      }
       const status = dockId ? "Endocado" : "Aguardando";
       const stageTime = isArrival
         ? { arrivalAt: serverTimestamp() }
@@ -1846,6 +2275,24 @@ function Scan() {
               manualRelease: false,
             }
           : {}),
+        progress: {
+          ...(current?.programDate !== programmed.date
+            ? Object.fromEntries(driverStages.map((stage) => [stage.key, null]))
+            : {}),
+          ...(isArrival
+            ? { chegadaCdc: { value: "liberada", at: serverTimestamp() } }
+            : dockId
+              ? {
+                  patio: { value: "endocado", at: serverTimestamp() },
+                  carregamento: {
+                    value: "aguardando carregamento",
+                    at: serverTimestamp(),
+                  },
+                }
+              : {
+                  patio: { value: "aguardando doca", at: serverTimestamp() },
+                }),
+        },
         ...stageTime,
         updatedAt: serverTimestamp(),
       };
@@ -1889,6 +2336,10 @@ function Scan() {
         location: `Doca ${dockId} — aguardando romaneio`,
         dockId,
         cargoFinishedAt: serverTimestamp(),
+        progress: {
+          carregamento: { value: "finalizado", at: serverTimestamp() },
+          romaneio: { value: "aguardando romaneio", at: serverTimestamp() },
+        },
         updatedAt: serverTimestamp(),
       };
       await writeMovement(normalized, payload, "AGUARDANDO_DOCUMENTACAO");
@@ -1925,16 +2376,19 @@ function Scan() {
       const payload = {
         plate: normalized,
         route: current.route,
-        status: "Veículo liberado",
-        location: "Romaneio recebido — veículo liberado",
-        dockId: null,
+        status: "Aguardando liberação de saída",
+        location: "Romaneio recebido — aguardando liberação de saída",
+        dockId: current.dockId || null,
         documentationReceivedAt: serverTimestamp(),
-        releasedAt: serverTimestamp(),
+        progress: {
+          romaneio: { value: "romaneio recebido", at: serverTimestamp() },
+          saida: { value: "aguardando liberação", at: serverTimestamp() },
+        },
         updatedAt: serverTimestamp(),
       };
       await writeMovement(normalized, payload, "DOCUMENTACAO_RECEBIDA");
       setRoute(current.route);
-      setResultLabel("Romaneio recebido — Veículo liberado");
+      setResultLabel("Romaneio recebido — Aguardando liberação de saída");
       setDocumentationPending(false);
       setDone(true);
     } catch (e) {
@@ -1969,7 +2423,9 @@ function Scan() {
             </h1>
             <p>
               {resultLabel.includes("liberado")
-                ? "O recebimento do romaneio foi confirmado e o veículo está liberado."
+                ? "A saída foi liberada e registrada no painel."
+                : resultLabel.includes("Romaneio recebido")
+                  ? "O recebimento foi registrado. Aguarde a liberação da saída no link do motorista."
                 : resultLabel.includes("Aguardando documentação")
                   ? "A carga ou descarga terminou. Confirme o recebimento do romaneio antes de sair."
                   : "Sua localização foi enviada ao controle operacional."}
@@ -1997,9 +2453,17 @@ function Scan() {
             {resultLabel.includes("Aguardando documentação") ? (
               <a
                 className="primary full documentation-link"
-                href={`/?documentacao=cdc&placa=${encodeURIComponent(plate.toUpperCase())}`}
+                href={`/?motorista=cdc&placa=${encodeURIComponent(plate.toUpperCase())}`}
               >
-                Já recebi o romaneio
+                Atualizar romaneio e saída
+              </a>
+            ) : null}
+            {resultLabel.includes("Romaneio recebido") ? (
+              <a
+                className="primary full documentation-link"
+                href={`/?motorista=cdc&placa=${encodeURIComponent(plate.toUpperCase())}`}
+              >
+                Acompanhar liberação da saída
               </a>
             ) : null}
             <small className="safe">Registro concluído. Você pode fechar esta página.</small>
@@ -2010,7 +2474,7 @@ function Scan() {
             <h1>Recebeu a documentação?</h1>
             <p>
               Confirme somente se o romaneio da placa <b>{plate.toUpperCase()}</b> foi entregue a você.
-              O horário ficará registrado no painel e o veículo será liberado.
+              O horário ficará registrado no painel. Depois, acompanhe a etapa de saída pelo link do motorista.
             </p>
             {error ? <p className="form-error">{error}</p> : null}
             <button disabled={saving} className="primary full" onClick={confirmDocumentation}>
@@ -2114,7 +2578,7 @@ function Scan() {
             </button>
             <small className="safe">
               {documentationLink
-                ? "A confirmação registra o recebimento do romaneio e libera o veículo."
+                ? "A confirmação registra o recebimento do romaneio. A saída é uma etapa separada."
                 : arrivalLink
                 ? "Use este link somente ao chegar ao CDC. Depois, siga as orientações de localização no pátio e na doca."
                 : "Na segunda leitura da mesma doca, finalize a operação e aguarde o romaneio."}
@@ -2130,13 +2594,14 @@ function locationSearch() {
 }
 
 function App() {
-  const [screen, setScreen] = useState(
-    new URLSearchParams(locationSearch()).has("local") ||
-      new URLSearchParams(locationSearch()).get("chegada") === "cdc" ||
-      new URLSearchParams(locationSearch()).get("documentacao") === "cdc"
-      ? "scan"
-      : "admin",
-  );
+  const [screen] = useState(() => {
+    const params = new URLSearchParams(locationSearch());
+    if (params.get("motorista") === "cdc" || params.get("chegada") === "cdc")
+      return "driver";
+    if (params.has("local") || params.get("documentacao") === "cdc")
+      return "scan";
+    return "admin";
+  });
   const [open, setOpen] = useState(false);
   const [activeNav, setActiveNav] = useState("Visão geral");
   const [authReady, setAuthReady] = useState(false);
@@ -2199,7 +2664,9 @@ function App() {
         </div>
       </div>
     );
-  return screen === "scan" ? (
+  return screen === "driver" ? (
+    <DriverPortal />
+  ) : screen === "scan" ? (
     <Scan />
   ) : (
     <div className="app">
