@@ -128,6 +128,39 @@ const driverStages = [
   },
 ];
 
+const driverStageHelp = {
+  chegadaCdc: {
+    question: "Sua entrada no CDC foi liberada?",
+    waiting: "Cheguei, estou aguardando",
+    complete: "Sim, entrada liberada",
+    hint: "Registre sua chegada assim que chegar ao CDC.",
+  },
+  patio: {
+    question: "Você já está na doca?",
+    waiting: "Estou no pátio, aguardando doca",
+    complete: "Sim, já estou na doca",
+    hint: "Se estiver na doca, selecione o número dela antes de confirmar.",
+  },
+  carregamento: {
+    question: "O carregamento terminou?",
+    waiting: "Ainda estou carregando",
+    complete: "Sim, terminou",
+    hint: "Avance quando a carga ou descarga estiver finalizada.",
+  },
+  romaneio: {
+    question: "Você recebeu o romaneio?",
+    waiting: "Ainda não recebi",
+    complete: "Sim, recebi o romaneio",
+    hint: "Romaneio é a documentação entregue após o carregamento.",
+  },
+  saida: {
+    question: "Sua saída do CDC foi liberada?",
+    waiting: "Ainda aguardo liberação",
+    complete: "Sim, fui liberado para sair",
+    hint: "Confirme a saída somente após receber a liberação.",
+  },
+};
+
 const stageValue = (driver, key) => {
   if (!driver) return null;
   if (driver.progress?.[key]?.value) return driver.progress[key].value;
@@ -1496,6 +1529,13 @@ function DriverPortal() {
     }
   };
 
+  const activeStageIndex = driverStages.findIndex(
+    (stage) => stageValue(record, stage.key) !== stage.complete,
+  );
+  const activeStage = driverStages[activeStageIndex];
+  const activeValue = activeStage ? stageValue(record, activeStage.key) : null;
+  const stageHelp = activeStage ? driverStageHelp[activeStage.key] : null;
+
   return (
     <div className="scan-page driver-page">
       <div className="scan-card driver-card">
@@ -1503,11 +1543,12 @@ function DriverPortal() {
           <span><CarFront /></span>
           <b>Controle de Pátio</b>
         </div>
-        <p className="eyebrow">ACOMPANHAMENTO DO MOTORISTA</p>
-        <h1>Atualize sua operação no CDC</h1>
+        <p className="eyebrow">REGISTRO DO MOTORISTA</p>
+        <h1>{programmed ? "Informe sua situação" : "Informe sua placa"}</h1>
         <p className="scan-help">
-          Com o veículo parado, informe a placa e a rota. Selecione a opção que
-          corresponde à situação atual em cada etapa.
+          {programmed
+            ? "Toque na opção que corresponde ao momento atual da operação."
+            : "Com o veículo parado, digite a placa e a rota para começar."}
         </p>
         {!programmed ? (
           <div className="driver-entry">
@@ -1532,7 +1573,7 @@ function DriverPortal() {
               disabled={plate.length !== 7 || route.trim().length < 2 || loading}
               onClick={identify}
             >
-              {loading ? "Consultando..." : "Consultar operação"}
+              {loading ? "Consultando..." : "Começar"}
               <ChevronRight size={18} />
             </button>
           </div>
@@ -1547,53 +1588,49 @@ function DriverPortal() {
             </div>
             {error ? <p className="form-error">{error}</p> : null}
             {message ? <p className="driver-message">{message}</p> : null}
-            <div className="driver-stages">
-              {driverStages.map((stage, index) => {
-                const currentValue = stageValue(record, stage.key);
-                const prior = driverStages[index - 1];
-                const enabled = !prior || stageValue(record, prior.key) === prior.complete;
-                const at = record?.progress?.[stage.key]?.at || record?.[stage.timestamp];
-                return (
-                  <section className="driver-stage" key={stage.key}>
-                    <div className="driver-stage-header">
-                      <span>{String(index + 1).padStart(2, "0")}</span>
-                      <div>
-                        <h2>{stage.label}</h2>
-                        <p>
-                          {currentValue ? `Atual: ${currentValue}` : "Sem registro"}
-                          {at ? ` • ${new Date(timestampMillis(at)).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : ""}
-                        </p>
-                      </div>
-                    </div>
-                    {stage.key === "patio" && enabled ? (
-                      <label className="driver-dock-label">
-                        Doca para endocamento
-                        <select value={dock} onChange={(e) => setDock(e.target.value)}>
-                          <option value="">Selecione a doca</option>
-                          {docks.filter((item) => !item.blocked).map((item) => (
-                            <option key={item.id} value={item.id}>{item.id}</option>
-                          ))}
-                        </select>
-                      </label>
-                    ) : null}
-                    <div className="driver-stage-options">
-                      {[stage.waiting, stage.complete].map((value) => (
-                        <button
-                          key={value}
-                          className={currentValue === value ? "selected" : ""}
-                          aria-pressed={currentValue === value}
-                          disabled={!enabled || saving}
-                          onClick={() => updateStage(stage, value)}
-                        >
-                          {value}
-                        </button>
+            {activeStage ? (
+              <section className="driver-stage driver-current-stage" aria-live="polite">
+                <div className="driver-step-count">ETAPA {activeStageIndex + 1} DE {driverStages.length}</div>
+                <div className="driver-step-track"><span style={{ width: `${(activeStageIndex / driverStages.length) * 100}%` }} /></div>
+                <h2>{stageHelp.question}</h2>
+                <p className="driver-step-hint">{stageHelp.hint}</p>
+                {activeValue ? <p className="driver-current-value">Registrado: {activeValue}</p> : null}
+                {activeStage.key === "patio" ? (
+                  <label className="driver-dock-label">
+                    Número da doca, se já estiver nela
+                    <select value={dock} onChange={(e) => setDock(e.target.value)}>
+                      <option value="">Selecione a doca</option>
+                      {docks.filter((item) => !item.blocked).map((item) => (
+                        <option key={item.id} value={item.id}>{item.id}</option>
                       ))}
-                    </div>
-                    {!enabled ? <small>Conclua a etapa anterior para continuar.</small> : null}
-                  </section>
-                );
-              })}
-            </div>
+                    </select>
+                  </label>
+                ) : null}
+                <div className="driver-stage-options">
+                  <button
+                    className={activeValue === activeStage.waiting ? "selected" : ""}
+                    aria-pressed={activeValue === activeStage.waiting}
+                    disabled={saving || activeValue === activeStage.waiting}
+                    onClick={() => updateStage(activeStage, activeStage.waiting)}
+                  >
+                    {stageHelp.waiting}
+                  </button>
+                  <button
+                    className="driver-complete-option"
+                    disabled={saving}
+                    onClick={() => updateStage(activeStage, activeStage.complete)}
+                  >
+                    {stageHelp.complete}
+                  </button>
+                </div>
+              </section>
+            ) : (
+              <div className="driver-finished">
+                <CircleCheck size={38} />
+                <h2>Operação finalizada</h2>
+                <p>Sua saída foi registrada. Não é preciso fazer mais nada.</p>
+              </div>
+            )}
           </>
         )}
       </div>
