@@ -2368,3 +2368,48 @@ html, body, #root, .app, .app main { background: #10213e; }
   .departure-alerts .departure-alert-time,
   .departure-alerts .departure-alert-location { font-size: 8px; }
 }
+
+/* Gráfico de ocupação das docas no painel azul. */
+.app .summary {
+  display: block;
+  background: #10213e;
+  border-color: #304767;
+  color: #fff;
+}
+.app .summary .panel-head h2 { color: #fff; }
+.app .summary .panel-head p { color: #b9cde7; }
+.occupancy-chart { padding: 0 18px 18px; }
+.occupancy-chart-total {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 5px 9px;
+  margin: 0 0 18px;
+}
+.occupancy-chart-total strong { font: 800 35px/1 Manrope, sans-serif; color: #72d9ff; }
+.occupancy-chart-total span { color: #d0e3f8; font-size: 11px; }
+.occupancy-chart-row { margin: 0 0 15px; }
+.occupancy-chart-row > div:first-child { display: flex; justify-content: space-between; gap: 9px; margin-bottom: 7px; font-size: 11px; }
+.occupancy-chart-row b { color: #fff; white-space: nowrap; }
+.occupancy-chart-track {
+  height: 11px;
+  border: 1px solid #5e7899;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #243d60;
+}
+.occupancy-chart-track span { display: block; height: 100%; background: #36bdf2; border-radius: inherit; transition: width .35s ease; }
+.occupancy-chart-track.available span { background: #40cc97; }
+.occupancy-chart-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.occupancy-chart-stats > div { min-width: 0; padding: 10px; border: 1px solid #3d5d82; border-radius: 9px; background: #1b3558; }
+.occupancy-chart-stats b { display: block; font: 800 19px/1.2 Manrope, sans-serif; color: #fff; }
+.occupancy-chart-stats span { display: block; margin-top: 3px; color: #bfd3ec; font-size: 9px; }
+.app .summary .alert { background: #563420; border-color: #a86c33; color: #ffe2b8; }
+.app .summary .alert span { color: #ffe2b8; }
+@media (max-width: 1100px) {
+  .app .summary { margin-top: 18px; }
+  .occupancy-chart-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .occupancy-chart-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
