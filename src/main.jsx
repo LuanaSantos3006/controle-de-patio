@@ -718,6 +718,11 @@ function Dashboard() {
     (d) => d.status === "Veículo liberado",
   ).length;
   const availableDocks = docks.filter((d) => !d.blocked && !liveDocks[d.id]);
+  const dockCapacity = docks.filter((d) => !d.blocked).length;
+  const occupiedDocks = dockCapacity - availableDocks.length;
+  const dockOccupancy = dockCapacity
+    ? Math.round((occupiedDocks / dockCapacity) * 100)
+    : 0;
   const departureAlerts = useMemo(
     () =>
       scheduleReferenceDate && closedProgramDate === scheduleReferenceDate
@@ -1147,31 +1152,28 @@ function Dashboard() {
             <div className="panel-head">
               <div>
                 <h2>Ocupação</h2>
-                <p>Capacidade operacional</p>
+                <p>Docas disponíveis e movimentação no CDC</p>
               </div>
             </div>
-            <div className="capacity">
-              <strong>{activeDrivers.length}</strong>
-              <span>veículos no CDC</span>
-              <small>Capacidade máxima do pátio a configurar</small>
-            </div>
-            <div className="legend">
-              <p>
-                <i className="dot parking" />
-                Aguardando <b>{waiting}</b>
-              </p>
-              <p>
-                <i className="dot dock" />
-                Em carga/descarga <b>{docked}</b>
-              </p>
-              <p>
-                <i className="dot parking" />
-                Aguardando documentação <b>{documentationWaiting.length}</b>
-              </p>
-              <p>
-                <i className="dot moving" />
-                Liberados hoje <b>{released}</b>
-              </p>
+            <div className="occupancy-chart" role="img" aria-label={`${occupiedDocks} de ${dockCapacity} docas ocupadas; ${availableDocks.length} livres. ${activeDrivers.length} veículos no CDC.`}>
+              <div className="occupancy-chart-total">
+                <strong>{dockOccupancy}%</strong>
+                <span>das docas ocupadas</span>
+              </div>
+              <div className="occupancy-chart-row">
+                <div><span>Docas ocupadas</span><b>{occupiedDocks} / {dockCapacity}</b></div>
+                <div className="occupancy-chart-track"><span style={{ width: `${dockOccupancy}%` }} /></div>
+              </div>
+              <div className="occupancy-chart-row">
+                <div><span>Docas disponíveis</span><b>{availableDocks.length}</b></div>
+                <div className="occupancy-chart-track available"><span style={{ width: `${100 - dockOccupancy}%` }} /></div>
+              </div>
+              <div className="occupancy-chart-stats">
+                <div><b>{activeDrivers.length}</b><span>no CDC</span></div>
+                <div><b>{waiting}</b><span>aguardando</span></div>
+                <div><b>{documentationWaiting.length}</b><span>aguardando romaneio</span></div>
+                <div><b>{released}</b><span>liberados hoje</span></div>
+              </div>
             </div>
             <div className="alert">
               <AlertTriangle size={18} />
