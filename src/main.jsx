@@ -2029,7 +2029,7 @@ function DriverPortal() {
           corresponde à situação atual em cada etapa.
         </p>
         {!programmed ? (
-          <>
+          <div className="driver-entry">
             <label>Placa do veículo</label>
             <input
               className="plate-input"
@@ -2054,7 +2054,7 @@ function DriverPortal() {
               {loading ? "Consultando..." : "Consultar operação"}
               <ChevronRight size={18} />
             </button>
-          </>
+          </div>
         ) : (
           <>
             <div className="driver-identification">
