@@ -1534,7 +1534,7 @@ function Dashboard({ onScan, activeNav }) {
                                 <strong>{progress.percent}%</strong>
                               </div>
                               <div className="progress-signal-track">
-                                <span style={{ width: `${progress.percent}%` }} />
+                                <span style={{ transform: `scaleX(${Math.min(100, Math.max(0, progress.percent)) / 100})` }} />
                               </div>
                             </div>
                           </td>
