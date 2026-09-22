@@ -913,10 +913,12 @@ td span {
 .progress-signal-label b { font-size: 10px; line-height: 1.25; }
 .progress-signal-label strong { flex: 0 0 auto; font-size: 12px; }
 .progress-signal-track {
-  height: 8px;
+  height: 11px;
   overflow: hidden;
   border-radius: 999px;
-  background: #e2e9f1;
+  border: 1px solid #91a8c4;
+  background: #eef3f9;
+  box-shadow: inset 0 1px 3px #24476c30;
 }
 .progress-signal-track span {
   display: block;
