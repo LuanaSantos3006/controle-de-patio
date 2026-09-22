@@ -856,7 +856,76 @@ td span {
   margin: 0 14px;
 }
 .queue-table {
-  min-width: 1120px;
+  min-width: 1230px;
+}
+.queue-table th,
+.queue-table td { padding-left: 10px; padding-right: 10px; }
+.queue-table th:nth-child(7),
+.queue-table td:nth-child(7) { width: 240px; }
+.scheduled-times { display: grid; gap: 4px; }
+.scheduled-times span {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  color: #6b7d92;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.scheduled-times b { color: #193b64; font-size: 11px; }
+.progress-legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 0 20px 14px;
+}
+.progress-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #63758c;
+  font-size: 10px;
+  font-weight: 700;
+}
+.progress-legend i { width: 9px; height: 9px; border-radius: 50%; }
+.progress-legend i.red { background: #d83e47; }
+.progress-legend i.yellow { background: #e5b323; }
+.progress-legend i.orange { background: #ed8a22; }
+.progress-legend i.green { background: #19a16c; }
+.progress-signal {
+  --signal: #d83e47;
+  min-width: 190px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1px solid #efc9cb;
+  background: #fff2f2;
+}
+.progress-signal.yellow { --signal: #e5b323; border-color: #f1dfaa; background: #fff9e8; }
+.progress-signal.orange { --signal: #ed8a22; border-color: #f3d2ad; background: #fff5e9; }
+.progress-signal.green { --signal: #19a16c; border-color: #bce5d2; background: #e9f8f0; }
+.progress-signal-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 7px;
+  color: #1d3552;
+}
+.progress-signal-label b { font-size: 10px; line-height: 1.25; }
+.progress-signal-label strong { flex: 0 0 auto; font-size: 12px; }
+.progress-signal-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e2e9f1;
+}
+.progress-signal-track span {
+  display: block;
+  height: 100%;
+  min-width: 8px;
+  margin: 0;
+  border-radius: inherit;
+  background: var(--signal);
+  transition: width .35s ease;
 }
 .new-plate {
   display: block;
@@ -1924,11 +1993,14 @@ td span {
   .queue-table td::before { display: block; margin-bottom: 4px; color: #8a97a9; font-size: 8px; font-weight: 800; letter-spacing: .06em; }
   .queue-table td:nth-child(1)::before { content: "ORDEM"; }
   .queue-table td:nth-child(2)::before { content: "VEÍCULO"; }
-  .queue-table td:nth-child(3)::before { content: "LOCALIZAÇÃO"; }
-  .queue-table td:nth-child(4)::before { content: "PERMANÊNCIA"; }
-  .queue-table td:nth-child(5)::before { content: "ROTA"; }
-  .queue-table td:nth-child(6)::before { content: "STATUS"; }
-  .queue-table td:nth-child(7)::before { content: "AÇÃO MANUAL"; }
+  .queue-table td:nth-child(3)::before { content: "PROGRAMAÇÃO"; }
+  .queue-table td:nth-child(4)::before { content: "LOCALIZAÇÃO"; }
+  .queue-table td:nth-child(5)::before { content: "PERMANÊNCIA"; }
+  .queue-table td:nth-child(6)::before { content: "ROTA"; }
+  .queue-table td:nth-child(7)::before { content: "FAROL OPERACIONAL"; }
+  .queue-table td:nth-child(8)::before { content: "AÇÃO MANUAL"; }
+  .queue-table td:nth-child(7) { width: auto; }
+  .progress-signal { width: 100%; min-width: 0; }
   .queue-table .empty-row { grid-column: 1 / -1; }
   .dock-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 0 12px 12px; }
   .dock-actions { width: 100%; }
