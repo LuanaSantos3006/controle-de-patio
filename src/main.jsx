@@ -1515,6 +1515,7 @@ function Dashboard({ onScan, activeNav }) {
                           <td>
                             {d.registered ? (
                               <span className={`time-chip ${timeTone(mins)}`}>
+                                <Clock3 size={15} aria-hidden="true" />
                                 {formatDuration(mins)}
                               </span>
                             ) : "—"}
