@@ -2129,3 +2129,53 @@ html, body, #root, .app, .app main { background: #10213e; }
 .stats .stat small { position: relative; z-index: 1; color: #fff; }
 .stats .stat small { color: #ffffffd9; }
 @media (prefers-reduced-motion: reduce) { .stats .stat { transition: none; } }
+
+/* Acompanhamento operacional com o mesmo azul do fundo. */
+.app .live, .app .live .table-wrap, .app .live .queue-table,
+.app .live .queue-table tbody, .app .live .queue-table tr,
+.app .live .queue-table td, .app .live .queue-table th {
+  background: #10213e;
+  color: #f5f9ff;
+}
+.app .live { border-color: #304767; }
+.app .live .panel-head h2, .app .live .queue-table b,
+.app .live .queue-table .place, .app .live .queue-table .scheduled-times b {
+  color: #fff;
+}
+.app .live .panel-head p, .app .live .queue-table td > span,
+.app .live .queue-table .scheduled-times span,
+.app .live .progress-legend > span, .app .live .queue-table .release-note {
+  color: #b9cde7;
+}
+.app .live .queue-table th { color: #8fc7ff; border-color: #304767; }
+.app .live .queue-table td { border-color: #304767; }
+.app .live .queue-table tr:hover td { background: #182d4e; }
+.app .live .progress-signal-label, .app .live .progress-signal-label b,
+.app .live .progress-signal-label strong { color: #193252; }
+.app .live .search { background: #1c3356; border-color: #446188; color: #b9cde7; }
+.app .live .search input { color: #fff; }
+.app .live .search input::placeholder { color: #b9cde7; }
+@media (max-width: 720px) {
+  .app .live .queue-table tr { border-color: #304767; }
+  .app .live .queue-table td::before { color: #8fc7ff; }
+}
+
+/* Cada aviso de atraso projeta uma segunda placa atrás dele. */
+.departure-alerts { column-gap: 15px; row-gap: 16px; padding: 0 7px 8px 0; }
+.departure-alerts .departure-late {
+  position: relative;
+  isolation: isolate;
+  border-radius: 10px;
+  border: 1px solid #ef6670;
+  box-shadow: 0 6px 14px #5b0c1780, inset 0 1px #ffffff55;
+}
+.departure-alerts .departure-late::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 4px -6px -6px 6px;
+  border-radius: inherit;
+  background: #831523;
+  border: 1px solid #e25b66;
+  box-shadow: 0 8px 16px #09112675;
+}
