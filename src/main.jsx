@@ -90,6 +90,11 @@ const docks = [
   { id: "67", bases: ["AET", "BCC"] },
 ];
 
+const driverDockOptions = [
+  ...docks.filter((dock) => !dock.blocked).map((dock) => dock.id),
+  ...Array.from({ length: 23 }, (_, index) => String(68 + index)),
+];
+
 const driverStages = [
   {
     key: "chegadaCdc",
@@ -473,11 +478,6 @@ function DockMap({ liveDocks, expanded, onExpand, onClose }) {
               <div className="dock-number">
                 <Truck size={17} />
                 <strong>{d.id}</strong>
-              </div>
-              <div className="dock-bases">
-                {d.bases.map((base, index) => (
-                  <span key={`${base}-${index}`}>{base}</span>
-                ))}
               </div>
               {active ? (
                 <div className="dock-live">
@@ -1441,8 +1441,8 @@ function DriverPortal() {
                     Número da doca, se já estiver nela
                     <select value={dock} onChange={(e) => setDock(e.target.value)}>
                       <option value="">Selecione a doca</option>
-                      {docks.filter((item) => !item.blocked).map((item) => (
-                        <option key={item.id} value={item.id}>{item.id}</option>
+                      {driverDockOptions.map((dockId) => (
+                        <option key={dockId} value={dockId}>{dockId}</option>
                       ))}
                     </select>
                   </label>
