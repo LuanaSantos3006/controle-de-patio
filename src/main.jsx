@@ -291,8 +291,12 @@ const minutesWaiting = (d, currentTime = Date.now()) => {
     timestampMillis(d.arrivalAt) ||
     timestampMillis(d.createdAt) ||
     timestampMillis(d.updatedAt);
+  const releasedAt =
+    timestampMillis(d.releasedAt) ||
+    timestampMillis(d.progress?.saida?.at);
+  const endTime = releasedAt || currentTime;
   return registeredAt
-    ? Math.max(0, Math.floor((currentTime - registeredAt) / 60000))
+    ? Math.max(0, Math.floor((endTime - registeredAt) / 60000))
     : d.minutes || 0;
 };
 const formatDuration = (minutes) =>
