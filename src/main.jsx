@@ -2004,7 +2004,7 @@ function App() {
         <div className="scan-card">
           <div className="scan-brand">
             <span>
-              <QrCode />
+              <CarFront />
             </span>
             <b>Controle de Pátio</b>
           </div>
