@@ -2452,3 +2452,34 @@ html, body, #root, .app, .app main { background: #10213e; }
   .driver-current-stage { padding: 18px; }
   .driver-card { padding: 14px 0 24px; }
 }
+
+/* Mapa operacional integrado ao fundo azul do painel. */
+.app .dock-panel,
+.app .dock-modal {
+  background: #10213e;
+  border-color: #304767;
+  color: #fff;
+}
+.app .dock-panel .panel-head h2,
+.app .dock-modal .panel-head h2 { color: #fff; }
+.app .dock-panel .panel-head p,
+.app .dock-modal .panel-head p { color: #b9cde7; }
+.app .dock-panel .eyebrow,
+.app .dock-modal .eyebrow { color: #8fc7ff; }
+.app .dock-card {
+  background: #193456;
+  border-color: #3d5d82;
+  border-top-color: #2796ff;
+}
+.app .dock-card .dock-number { color: #72c7ff; }
+.app .dock-card .dock-bases span { color: #e4f1ff; background: #28486c; }
+.app .dock-card .dock-route-empty,
+.app .dock-card .dock-live span { color: #afc7e2; }
+.app .dock-card .dock-live { border-top-color: #3d5d82; }
+.app .dock-card .dock-live b { color: #fff; }
+.app .dock-card.blocked { background: #552638; border-color: #994155; border-top-color: #ff566b; }
+.app .dock-card.blocked .dock-bases span { color: #ffdce2; background: #713448; }
+.app .dock-card.occupied { background: #4b3b20; border-color: #8c6a2c; border-top-color: #ffc44d; }
+.app .dock-count { color: #b9ffe4; background: #145642; }
+.app .expand-map { color: #ddecff; background: #1c385d; border-color: #4e6f96; }
+.app .conveyor { background: #284363; border: 1px solid #4a6788; }
