@@ -317,6 +317,16 @@ const normalizeText = (value) =>
     .trim()
     .toLowerCase();
 const SCHEDULE_LINK_KEY = "controle-patio-programacao-link";
+const DRIVER_SESSION_KEY = "controle-patio-motorista-atual";
+
+const savedDriverSession = () => {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(localStorage.getItem(DRIVER_SESSION_KEY) || "{}") || {};
+  } catch {
+    return {};
+  }
+};
 const parseCsv = (text) => {
   const rows = [];
   let row = [],
@@ -1211,10 +1221,20 @@ function Dashboard() {
 
 function DriverPortal() {
   const params = new URLSearchParams(locationSearch());
+  const queryPlate = params
+    .get("placa")
+    ?.replace(/[^a-zA-Z0-9]/g, "")
+    .slice(0, 7)
+    .toUpperCase();
+  const [storedSession] = useState(savedDriverSession);
   const [plate, setPlate] = useState(
-    params.get("placa")?.replace(/[^a-zA-Z0-9]/g, "").slice(0, 7) || "",
+    queryPlate || storedSession.plate || "",
   );
-  const [route, setRoute] = useState("");
+  const [route, setRoute] = useState(
+    !queryPlate || queryPlate === storedSession.plate
+      ? storedSession.route || ""
+      : "",
+  );
   const [programmed, setProgrammed] = useState(null);
   const [record, setRecord] = useState(null);
   const [dock, setDock] = useState("");
@@ -1249,11 +1269,48 @@ function DriverPortal() {
       setPlate(normalized);
       setRoute(vehicle.route || route);
       setProgrammed(vehicle);
+      try {
+        localStorage.setItem(
+          DRIVER_SESSION_KEY,
+          JSON.stringify({
+            plate: normalized,
+            route: vehicle.route || route,
+          }),
+        );
+      } catch {
+        // O registro operacional continua mesmo se o navegador bloquear o armazenamento local.
+      }
     } catch (e) {
       setError(e?.message || "Não foi possível consultar a programação.");
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    if (
+      storedSession.plate?.length === 7 &&
+      storedSession.route?.trim().length >= 2 &&
+      (!queryPlate || queryPlate === storedSession.plate)
+    )
+      identify();
+  }, []);
+
+  const changePlate = () => {
+    try {
+      localStorage.removeItem(DRIVER_SESSION_KEY);
+    } catch {
+      // Alguns navegadores podem bloquear o armazenamento local.
+    }
+    if (typeof window !== "undefined" && window.location.search)
+      window.history.replaceState({}, "", "/motorista");
+    setPlate("");
+    setRoute("");
+    setProgrammed(null);
+    setRecord(null);
+    setDock("");
+    setError("");
+    setMessage("");
   };
 
   const updateStage = async (stage, value) => {
@@ -1423,7 +1480,7 @@ function DriverPortal() {
             <div className="driver-identification">
               <strong>{programmed.plate}</strong>
               <span>{programmed.route || route} • Programação {programmed.date}</span>
-              <button onClick={() => { setProgrammed(null); setRecord(null); setDock(""); setError(""); setMessage(""); }}>
+              <button onClick={changePlate}>
                 Trocar placa
               </button>
             </div>
