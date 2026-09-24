@@ -1808,7 +1808,7 @@ function Scan() {
             {resultLabel.includes("Aguardando documentação") ? (
               <a
                 className="primary full documentation-link"
-                href={`/?motorista=cdc&placa=${encodeURIComponent(plate.toUpperCase())}`}
+                href={`/motorista?placa=${encodeURIComponent(plate.toUpperCase())}`}
               >
                 Atualizar romaneio e saída
               </a>
@@ -1816,7 +1816,7 @@ function Scan() {
             {resultLabel.includes("Romaneio recebido") ? (
               <a
                 className="primary full documentation-link"
-                href={`/?motorista=cdc&placa=${encodeURIComponent(plate.toUpperCase())}`}
+                href={`/motorista?placa=${encodeURIComponent(plate.toUpperCase())}`}
               >
                 Acompanhar liberação da saída
               </a>
@@ -1948,10 +1948,18 @@ function locationSearch() {
   return typeof window === "undefined" ? "" : window.location.search;
 }
 
+function locationPathname() {
+  return typeof window === "undefined" ? "/" : window.location.pathname;
+}
+
 function App() {
   const [screen] = useState(() => {
     const params = new URLSearchParams(locationSearch());
-    if (params.get("motorista") === "cdc" || params.get("chegada") === "cdc")
+    if (
+      locationPathname().replace(/\/+$/, "") === "/motorista" ||
+      params.get("motorista") === "cdc" ||
+      params.get("chegada") === "cdc"
+    )
       return "driver";
     if (params.has("local") || params.get("documentacao") === "cdc")
       return "scan";
