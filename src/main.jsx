@@ -713,19 +713,6 @@ function Dashboard() {
   const documentationWaiting = activeDrivers.filter(
     (d) => d.status === "Aguardando documentação",
   );
-  const documentationReceived = allDrivers
-    .filter(
-      (d) =>
-        d.documentationReceivedAt &&
-        (!turnStartedAt ||
-          timestampMillis(d.documentationReceivedAt) >= turnStartedAt) &&
-        (!scheduleReferenceDate || d.programDate === scheduleReferenceDate),
-    )
-    .sort(
-      (a, b) =>
-        (timestampMillis(b.documentationReceivedAt) || 0) -
-        (timestampMillis(a.documentationReceivedAt) || 0),
-    );
   const docked = activeDrivers.filter((d) => d.status === "Endocado").length;
   const released = allDrivers.filter(
     (d) => d.status === "Veículo liberado",
@@ -1200,77 +1187,6 @@ function Dashboard() {
       ) : null}
       {activeNav === "Visão geral" ? (
         <>
-          <section className="panel documentation-panel">
-            <div className="panel-head">
-              <div>
-                <p className="eyebrow">ROMANEIO • TEMPO REAL</p>
-                <h2>Recebimento da documentação</h2>
-                <p>
-                  O motorista confirma o recebimento pelo celular após a carga
-                  ou descarga.
-                </p>
-              </div>
-              <span className="documentation-total">
-                {documentationWaiting.length} aguardando
-              </span>
-            </div>
-            <div className="documentation-groups">
-              <div>
-                <h3>Aguardando romaneio</h3>
-                {documentationWaiting.length ? (
-                  documentationWaiting.map((driver) => (
-                    <p className="documentation-row" key={driver.plate}>
-                      <b>{driver.plate}</b>
-                      <span>Doca {driver.dockId || "—"}</span>
-                      <strong>
-                        {formatDuration(
-                          Math.max(
-                            0,
-                            Math.floor(
-                              (now - (timestampMillis(driver.cargoFinishedAt) || now)) /
-                                60000,
-                            ),
-                          ),
-                        )} de espera
-                      </strong>
-                    </p>
-                  ))
-                ) : (
-                  <p className="documentation-empty">
-                    Nenhum veículo aguardando documentação.
-                  </p>
-                )}
-              </div>
-              <div>
-                <h3>Romaneio recebido</h3>
-                {documentationReceived.length ? (
-                  documentationReceived.slice(0, 6).map((driver) => (
-                    <p className="documentation-row" key={driver.plate}>
-                      <b>{driver.plate}</b>
-                      <span>
-                        Recebido às{" "}
-                        {new Date(
-                          timestampMillis(driver.documentationReceivedAt),
-                        ).toLocaleTimeString("pt-BR", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                      <strong>
-                        {driver.status === "Veículo liberado"
-                          ? "Saída liberada"
-                          : "Aguardando liberação de saída"}
-                      </strong>
-                    </p>
-                  ))
-                ) : (
-                  <p className="documentation-empty">
-                    Nenhum romaneio confirmado neste turno.
-                  </p>
-                )}
-              </div>
-            </div>
-          </section>
           <DockMap
             liveDocks={liveDocks}
             expanded={false}
