@@ -726,26 +726,6 @@ function Dashboard() {
         (timestampMillis(b.documentationReceivedAt) || 0) -
         (timestampMillis(a.documentationReceivedAt) || 0),
     );
-  const [stageQuery, setStageQuery] = useState("");
-  const stageRows = useMemo(() => {
-    const rows = scheduleRows.length
-      ? scheduleRows.map((item) => ({
-          plate: item.plate,
-          route: item.route,
-          record: allDrivers.find(
-            (driver) =>
-              driver.plate === item.plate && driver.programDate === item.date,
-          ),
-        }))
-      : allDrivers.map((driver) => ({
-          plate: driver.plate,
-          route: driver.route,
-          record: driver,
-        }));
-    return rows.filter((item) =>
-      item.plate.includes(stageQuery.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()),
-    );
-  }, [scheduleRows, allDrivers, stageQuery]);
   const docked = activeDrivers.filter((d) => d.status === "Endocado").length;
   const released = allDrivers.filter(
     (d) => d.status === "Veículo liberado",
@@ -1220,65 +1200,6 @@ function Dashboard() {
       ) : null}
       {activeNav === "Visão geral" ? (
         <>
-          <section className="panel stage-panel">
-            <div className="panel-head">
-              <div>
-                <p className="eyebrow">ETAPAS • TEMPO REAL</p>
-                <h2>Situação de cada veículo</h2>
-                <p>Os registros do motorista aparecem aqui automaticamente.</p>
-              </div>
-              <div className="search">
-                <Search size={16} />
-                <input
-                  value={stageQuery}
-                  onChange={(e) => setStageQuery(e.target.value)}
-                  placeholder="Buscar placa"
-                />
-              </div>
-            </div>
-            <div className="stage-table-wrap">
-              <div className="stage-table-head">
-                <span>VEÍCULO</span>
-                {driverStages.map((stage) => (
-                  <span key={stage.key}>{stage.label}</span>
-                ))}
-              </div>
-              {stageRows.length ? (
-                stageRows.map((item) => (
-                  <div className="stage-table-row" key={`${item.plate}-${item.record?.programDate || "programado"}`}>
-                    <div className="stage-table-vehicle">
-                      <b>{item.plate}</b>
-                      <small>{item.route || item.record?.route || "Rota não informada"}</small>
-                    </div>
-                    {driverStages.map((stage) => {
-                      const value = stageValue(item.record, stage.key);
-                      const at = item.record?.progress?.[stage.key]?.at ||
-                        (value === stage.complete ? item.record?.[stage.timestamp] : null);
-                      return (
-                        <div className="stage-table-cell" data-label={stage.label} key={stage.key}>
-                          <span className={`stage-badge ${value === stage.complete ? "completed" : value ? "waiting" : "missing"}`}>
-                            {value || "Sem registro"}
-                          </span>
-                          {at ? (
-                            <small>
-                              {new Date(timestampMillis(at)).toLocaleTimeString("pt-BR", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </small>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))
-              ) : (
-                <p className="documentation-empty stage-empty">
-                  Nenhum veículo encontrado na programação.
-                </p>
-              )}
-            </div>
-          </section>
           <section className="panel documentation-panel">
             <div className="panel-head">
               <div>
