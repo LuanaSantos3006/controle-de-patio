@@ -442,7 +442,7 @@ function DockMap({ liveDocks, expanded, onExpand, onClose }) {
     <section className={`panel dock-panel ${expanded ? "dock-modal" : ""}`}>
       <div className="panel-head">
         <div>
-          <p className="eyebrow">SP8 • GUARULHOS • TEMPO REAL</p>
+          <p className="eyebrow">GU - GUARULHOS • TEMPO REAL</p>
           <h2>Mapa operacional das docas</h2>
           <p>18 posições físicas • clique para visualizar o mapa completo</p>
         </div>
@@ -2033,7 +2033,7 @@ function App() {
           </div>
           <div>
             <b>Controle de Pátio</b>
-            <span>SP1 E SP8 - GUARULHOS</span>
+            <span>GU - GUARULHOS</span>
           </div>
         </div>
         <span className="app-header-company">iMile • Controle operacional</span>
