@@ -907,6 +907,43 @@ function Dashboard({ testMode = false }) {
     }),
     [arrivalCriticalRows],
   );
+  const arrivalWave = useMemo(() => {
+    const buckets = new Map();
+    visibleScheduleRows.forEach((item) => {
+      const match = String(item.time || "").match(/(\d{1,2}):/);
+      if (!match) return;
+      const hour = Number(match[1]);
+      const operationalHour = hour < 12 ? hour + 24 : hour;
+      const current = buckets.get(operationalHour) || {
+        hour,
+        planned: 0,
+        arrived: 0,
+      };
+      current.planned += 1;
+      if (allDrivers.some((driver) => driver.plate === item.plate && driver.arrivalAt))
+        current.arrived += 1;
+      buckets.set(operationalHour, current);
+    });
+    const values = [...buckets.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([, value]) => value);
+    const chartValues = values.length === 1 ? [values[0], values[0]] : values;
+    const max = Math.max(1, ...chartValues.map((item) => item.planned));
+    const points = (key) =>
+      chartValues
+        .map((item, index) => {
+          const x = chartValues.length > 1 ? (index / (chartValues.length - 1)) * 300 : 0;
+          const y = 62 - (item[key] / max) * 50;
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        })
+        .join(" ");
+    return {
+      planned: points("planned"),
+      arrived: points("arrived"),
+      first: values.length ? `${String(values[0].hour).padStart(2, "0")}h` : "—",
+      last: values.length ? `${String(values.at(-1).hour).padStart(2, "0")}h` : "—",
+    };
+  }, [visibleScheduleRows, allDrivers]);
   const playAlert = (kind) => {
     if (!soundEnabled || !soundContextRef.current) return;
     const context = soundContextRef.current;
@@ -1163,47 +1200,6 @@ function Dashboard({ testMode = false }) {
               tone="green"
             />
           </section>
-          {testMode ? (
-            <section className="test-operations-panel" aria-label="Indicadores de chegada">
-              <article className="arrival-sla-card">
-                <div className="arrival-sla-head">
-                  <div>
-                    <p className="eyebrow">SLA DE CHEGADA</p>
-                    <h2>Motoristas previstos no CDC</h2>
-                  </div>
-                  <strong>{arrivalSla.percent}%</strong>
-                </div>
-                <div className="arrival-sla-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={arrivalSla.percent}>
-                  <span style={{ width: `${arrivalSla.percent}%` }} />
-                </div>
-                <div className="arrival-sla-copy">
-                  <b>Já chegaram {arrivalSla.percent}%</b>
-                  <span>Faltam {arrivalSla.missing}%</span>
-                  <small>{arrivalSla.arrived} de {arrivalSla.total} veículos registrados</small>
-                </div>
-              </article>
-              <div className="delay-levels">
-                <article className="delay-level level-1">
-                  <span>NÍVEL 1</span><strong>{delayTotals[1]}</strong><small>até 10 min</small>
-                </article>
-                <article className="delay-level level-2">
-                  <span>NÍVEL 2</span><strong>{delayTotals[2]}</strong><small>11 a 30 min</small>
-                </article>
-                <article className="delay-level level-3">
-                  <span>NÍVEL 3</span><strong>{delayTotals[3]}</strong><small>acima de 30 min</small>
-                </article>
-              </div>
-              {arrivalCriticalRows.length ? (
-                <div className="critical-time-alert">
-                  <AlertTriangle size={20} />
-                  <div>
-                    <b>Criticidade de horário: {arrivalCriticalRows.length} veículo(s) em atraso</b>
-                    <span>{arrivalCriticalRows.slice(0, 5).map((item) => `${item.plate} — ${item.lateMinutes} min (N${item.level})`).join(" • ")}</span>
-                  </div>
-                </div>
-              ) : null}
-            </section>
-          ) : null}
           <section className="panel schedule-panel">
             <div className="schedule-config">
               <div>
@@ -1293,7 +1289,7 @@ function Dashboard({ testMode = false }) {
         </>
       ) : null}
       {activeNav === "Visão geral" ? (
-        <section className="grid-main">
+        <section className={`grid-main ${testMode ? "test-grid-main" : ""}`}>
           <div className="panel live">
             <div className="panel-head">
               <div>
@@ -1472,6 +1468,61 @@ function Dashboard({ testMode = false }) {
                 <div><b>{released}</b><span>liberados hoje</span></div>
               </div>
             </div>
+            {testMode ? (
+              <section className="test-side-dashboard" aria-label="Indicadores de chegada">
+                <div className="test-side-title">
+                  <div>
+                    <p className="eyebrow">SLA DE CHEGADA</p>
+                    <h3>Fluxo dos motoristas</h3>
+                  </div>
+                  <strong>{arrivalSla.percent}%</strong>
+                </div>
+                <div className="arrival-sla-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={arrivalSla.percent}>
+                  <span style={{ width: `${arrivalSla.percent}%` }} />
+                </div>
+                <div className="arrival-sla-copy compact">
+                  <b>{arrivalSla.arrived} chegaram</b>
+                  <span>{arrivalSla.total - arrivalSla.arrived} pendentes</span>
+                  <small>{arrivalSla.missing}% ainda não chegou</small>
+                </div>
+                <div className="arrival-wave">
+                  <div className="arrival-wave-head">
+                    <b>Movimento por horário</b>
+                    <span><i className="planned" /> Programados <i className="arrived" /> Chegaram</span>
+                  </div>
+                  <svg viewBox="0 0 300 70" preserveAspectRatio="none" aria-label="Ondas de veículos programados e que chegaram">
+                    <line x1="0" y1="62" x2="300" y2="62" />
+                    <polyline className="wave-planned" points={arrivalWave.planned} />
+                    <polyline className="wave-arrived" points={arrivalWave.arrived} />
+                  </svg>
+                  <div className="arrival-wave-axis"><span>{arrivalWave.first}</span><span>{arrivalWave.last}</span></div>
+                </div>
+                <div className="delay-levels compact-levels">
+                  {[1, 2, 3].map((level) => {
+                    const totalDelayed = arrivalCriticalRows.length;
+                    const share = totalDelayed ? Math.round((delayTotals[level] / totalDelayed) * 100) : 0;
+                    const ranges = { 1: "até 10 min", 2: "11 a 30 min", 3: "+30 min" };
+                    return (
+                      <article key={level} className={`delay-level level-${level} ${delayTotals[level] ? "active" : ""}`}>
+                        <div><span>NÍVEL {level}</span><strong>{delayTotals[level]}</strong></div>
+                        <small>{ranges[level]}</small>
+                        <em>{delayTotals[level] ? `${share}% dos atrasos` : "Sem ocorrência"}</em>
+                        <i className="level-motion" style={{ width: `${Math.max(8, share)}%` }} />
+                      </article>
+                    );
+                  })}
+                </div>
+                {arrivalCriticalRows.length ? (
+                  <div className="critical-time-alert compact-alert">
+                    <AlertTriangle size={17} />
+                    <div>
+                      <b>{arrivalCriticalRows.length} veículo(s) em criticidade</b>
+                      <span>Maior atraso: {arrivalCriticalRows[0].plate} • {arrivalCriticalRows[0].lateMinutes} min</span>
+                    </div>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
             <div className="alert">
               <AlertTriangle size={18} />
               <div>
