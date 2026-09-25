@@ -311,6 +311,24 @@ const minutesWaiting = (d, currentTime = Date.now()) => {
     ? Math.max(0, Math.floor((endTime - registeredAt) / 60000))
     : d.minutes || 0;
 };
+const minutesInCurrentStatus = (driver, currentTime = Date.now()) => {
+  const progressTimes = Object.values(driver.progress || {})
+    .map((stage) => timestampMillis(stage?.at))
+    .filter(Boolean);
+  const statusStart = Math.max(
+    0,
+    timestampMillis(driver.updatedAt) || 0,
+    timestampMillis(driver.arrivalAt) || 0,
+    timestampMillis(driver.dockedAt) || 0,
+    timestampMillis(driver.cargoFinishedAt) || 0,
+    timestampMillis(driver.documentationReceivedAt) || 0,
+    timestampMillis(driver.releasedAt) || 0,
+    ...progressTimes,
+  );
+  if (!statusStart) return 0;
+  if (driver.status === "Veículo liberado") return 0;
+  return Math.max(0, Math.floor((currentTime - statusStart) / 60000));
+};
 const formatDuration = (minutes) =>
   minutes >= 60
     ? `${Math.floor(minutes / 60)}h ${minutes % 60}min`
@@ -325,6 +343,8 @@ const normalizeText = (value) =>
     .toLowerCase();
 const SCHEDULE_LINK_KEY = "controle-patio-programacao-link";
 const TEST_SCHEDULE_LINK_KEY = "controle-patio-programacao-link-teste";
+const TEST_CARRIER_KEY = "controle-patio-transportadora-teste";
+const TEST_CDC_KEY = "controle-patio-cdc-teste";
 const PANEL_DEVICE_KEY = "controle-patio-painel-dispositivo";
 const DRIVER_SESSION_KEY = "controle-patio-motorista-atual";
 
@@ -610,17 +630,25 @@ function Dashboard({ testMode = false }) {
   const [manualReleasePlate, setManualReleasePlate] = useState("");
   const [manualReleaseError, setManualReleaseError] = useState("");
   const [now, setNow] = useState(Date.now());
-  const [testCarrier, setTestCarrier] = useState("");
-  const [testCdc, setTestCdc] = useState("TODOS");
+  const [testCarrier, setTestCarrier] = useState(() =>
+    testMode ? localStorage.getItem(TEST_CARRIER_KEY) || "" : "",
+  );
+  const [testCdc, setTestCdc] = useState(() =>
+    testMode ? localStorage.getItem(TEST_CDC_KEY) || "TODOS" : "TODOS",
+  );
+  const [romaneioAlerts, setRomaneioAlerts] = useState([]);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [soundPromptOpen, setSoundPromptOpen] = useState(testMode);
   const [testPopup, setTestPopup] = useState(null);
   const [waveOpen, setWaveOpen] = useState(false);
   const [delayModalLevel, setDelayModalLevel] = useState(null);
   const soundContextRef = useRef(null);
+  const wakeLockRef = useRef(null);
   const filterDetailsRef = useRef(null);
   const shownRomaneioPopupRef = useRef(new Set());
   const alertedRomaneioRef = useRef(new Set());
+  const shownRomaneioCriticalRef = useRef(new Set());
+  const alertedRomaneioCriticalRef = useRef(new Set());
   const alertedArrivalRef = useRef(new Set());
   const pageCopy = [
     "Visão geral do pátio",
@@ -634,6 +662,35 @@ function Dashboard({ testMode = false }) {
       ),
     );
   }, []);
+  useEffect(() => {
+    if (!testMode || !firebaseReady || !db) return;
+    return onSnapshot(collection(db, "alertas"), (snap) =>
+      setRomaneioAlerts(
+        snap.docs
+          .map((item) => ({ id: item.id, ...item.data() }))
+          .filter((item) => String(item.type || "").startsWith("ROMANEIO_")),
+      ),
+    );
+  }, [testMode]);
+  useEffect(() => {
+    if (!testMode) return;
+    if (testCarrier) localStorage.setItem(TEST_CARRIER_KEY, testCarrier);
+    else localStorage.removeItem(TEST_CARRIER_KEY);
+    localStorage.setItem(TEST_CDC_KEY, testCdc);
+  }, [testMode, testCarrier, testCdc]);
+  useEffect(() => {
+    if (!testMode) return;
+    const restoreWakeLock = async () => {
+      if (document.visibilityState !== "visible" || !navigator.wakeLock || !soundEnabled) return;
+      try {
+        wakeLockRef.current = await navigator.wakeLock.request("screen");
+      } catch (error) {
+        console.warn("Não foi possível manter a tela ativa:", error);
+      }
+    };
+    document.addEventListener("visibilitychange", restoreWakeLock);
+    return () => document.removeEventListener("visibilitychange", restoreWakeLock);
+  }, [testMode, soundEnabled]);
   useEffect(() => {
     if (!firebaseReady || !db) return;
     const configId = testMode
@@ -1056,7 +1113,18 @@ function Dashboard({ testMode = false }) {
     const onTime = rows.filter((item) => item.arrived && item.variance <= 0).length;
     const lateArrivals = rows.filter((item) => item.arrived && item.variance > 0).length;
     const overdue = rows.filter((item) => !item.arrived && item.variance > 0).length;
-    return { rows, arrived, onTime, lateArrivals, overdue };
+    const delayedArrivalMinutes = rows
+      .filter((item) => item.arrived && item.variance > 0)
+      .map((item) => item.variance);
+    const averageDelay = delayedArrivalMinutes.length
+      ? Math.round(
+          delayedArrivalMinutes.reduce((total, minutes) => total + minutes, 0) /
+            delayedArrivalMinutes.length,
+        )
+      : 0;
+    const punctuality = arrived ? Math.round((onTime / arrived) * 100) : 0;
+    const critical = rows.filter((item) => item.delayed && item.variance > 30).length;
+    return { rows, arrived, onTime, lateArrivals, overdue, averageDelay, punctuality, critical };
   }, [visibleScheduleRows, displayAllDrivers, now]);
   const formatArrivalHour = (value) =>
     value
@@ -1066,10 +1134,30 @@ function Dashboard({ testMode = false }) {
           timeZone: "America/Sao_Paulo",
         })
       : "—";
+  const visibleRomaneioAlerts = useMemo(
+    () =>
+      romaneioAlerts
+        .filter(
+          (alert) =>
+            visiblePlateSet.has(alert.plate) &&
+            (!scheduleReferenceDate || alert.programDate === scheduleReferenceDate),
+        )
+        .sort(
+          (a, b) =>
+            (b.threshold || 0) - (a.threshold || 0) ||
+            timestampMillis(b.createdAt) - timestampMillis(a.createdAt),
+        ),
+    [romaneioAlerts, visiblePlateSet, scheduleReferenceDate],
+  );
   const playAlert = (kind) => {
     if (!soundEnabled || !soundContextRef.current) return;
     const context = soundContextRef.current;
-    const notes = kind === "romaneio" ? [880, 880] : [390, 320, 390];
+    const notes =
+      kind === "romaneioCritico"
+        ? [1040, 780, 1040, 780, 1040]
+        : kind === "romaneio"
+          ? [880, 880]
+          : [390, 320, 390];
     notes.forEach((frequency, index) => {
       const oscillator = context.createOscillator();
       const gain = context.createGain();
@@ -1091,6 +1179,13 @@ function Dashboard({ testMode = false }) {
     const context = soundContextRef.current || new AudioContext();
     soundContextRef.current = context;
     await context.resume();
+    if (navigator.wakeLock) {
+      try {
+        wakeLockRef.current = await navigator.wakeLock.request("screen");
+      } catch (error) {
+        console.warn("Wake Lock indisponível:", error);
+      }
+    }
     setSoundEnabled(true);
     setSoundPromptOpen(false);
   };
@@ -1098,25 +1193,83 @@ function Dashboard({ testMode = false }) {
     if (!testMode) return;
     const overdueRomaneio = displayActiveDrivers.filter((driver) => {
       if (driver.status !== "Aguardando documentação") return false;
-      const startedAt = timestampMillis(driver.cargoFinishedAt);
+      const startedAt =
+        timestampMillis(driver.cargoFinishedAt) ||
+        timestampMillis(driver.progress?.carregamento?.at);
       return startedAt && now - startedAt > 10 * 60000;
     });
+    const criticalRomaneio = overdueRomaneio.filter((driver) => {
+      const startedAt =
+        timestampMillis(driver.cargoFinishedAt) ||
+        timestampMillis(driver.progress?.carregamento?.at);
+      return startedAt && now - startedAt > 30 * 60000;
+    });
+    const registerRomaneioAlert = (driver, threshold) => {
+      if (!db) return;
+      const startedAt =
+        timestampMillis(driver.cargoFinishedAt) ||
+        timestampMillis(driver.progress?.carregamento?.at);
+      const scheduleItem = visibleScheduleRows.find((item) => item.plate === driver.plate);
+      const programDate = driver.programDate || scheduleItem?.date || scheduleReferenceDate || "turno";
+      const alertId = `romaneio_${programDate}_${driver.plate}_${threshold}`.replace(/[^a-zA-Z0-9_-]/g, "-");
+      void setDoc(
+        doc(db, "alertas", alertId),
+        {
+          type: threshold === 30 ? "ROMANEIO_CRITICO_30" : "ROMANEIO_ATENCAO_10",
+          threshold,
+          severity: threshold === 30 ? "critica" : "atencao",
+          plate: driver.plate,
+          route: driver.route || scheduleItem?.route || "",
+          carrier: scheduleItem?.carrier || driver.carrier || "",
+          dockId: driver.dockId || null,
+          programDate,
+          waitingSince:
+            driver.cargoFinishedAt || driver.progress?.carregamento?.at || null,
+          createdAt: startedAt ? new Date(startedAt + threshold * 60000) : serverTimestamp(),
+        },
+        { merge: true },
+      );
+    };
     const newPopupRomaneio = overdueRomaneio.filter(
       (driver) => !shownRomaneioPopupRef.current.has(driver.plate),
     );
     if (newPopupRomaneio.length) {
       newPopupRomaneio.forEach((driver) => shownRomaneioPopupRef.current.add(driver.plate));
+      newPopupRomaneio.forEach((driver) => registerRomaneioAlert(driver, 10));
       setTestPopup({
         message: "Motorista aguardando romaneio a mais de 10min",
         plates: newPopupRomaneio.map((driver) => driver.plate).join(", "),
       });
     }
     const newRomaneio = soundEnabled ? overdueRomaneio.filter(
-      (driver) => !alertedRomaneioRef.current.has(driver.plate),
+      (driver) =>
+        !criticalRomaneio.some((critical) => critical.plate === driver.plate) &&
+        !alertedRomaneioRef.current.has(driver.plate),
     ) : [];
     if (newRomaneio.length) {
       newRomaneio.forEach((driver) => alertedRomaneioRef.current.add(driver.plate));
       playAlert("romaneio");
+    }
+    const newCriticalPopup = criticalRomaneio.filter(
+      (driver) => !shownRomaneioCriticalRef.current.has(driver.plate),
+    );
+    if (newCriticalPopup.length) {
+      newCriticalPopup.forEach((driver) => shownRomaneioCriticalRef.current.add(driver.plate));
+      newCriticalPopup.forEach((driver) => registerRomaneioAlert(driver, 30));
+      setTestPopup({
+        critical: true,
+        message: "CRÍTICO: motorista aguardando romaneio a mais de 30min",
+        plates: newCriticalPopup.map((driver) => driver.plate).join(", "),
+      });
+    }
+    const newCriticalSound = soundEnabled
+      ? criticalRomaneio.filter(
+          (driver) => !alertedRomaneioCriticalRef.current.has(driver.plate),
+        )
+      : [];
+    if (newCriticalSound.length) {
+      newCriticalSound.forEach((driver) => alertedRomaneioCriticalRef.current.add(driver.plate));
+      playAlert("romaneioCritico");
     }
     const newArrivalDelays = soundEnabled ? arrivalCriticalRows.filter((item) => {
       const key = `${item.date}-${item.plate}`;
@@ -1125,7 +1278,7 @@ function Dashboard({ testMode = false }) {
       return true;
     }) : [];
     if (newArrivalDelays.length) playAlert("chegada");
-  }, [testMode, soundEnabled, displayActiveDrivers, arrivalCriticalRows, now]);
+  }, [testMode, soundEnabled, displayActiveDrivers, arrivalCriticalRows, visibleScheduleRows, scheduleReferenceDate, now]);
   const saveScheduleLink = async () => {
     setScheduleError("");
     try {
@@ -1487,7 +1640,9 @@ function Dashboard({ testMode = false }) {
                 <tbody>
                   {filtered.length ? (
                     filtered.map((d, index) => {
-                      const mins = minutesWaiting(d, now);
+                      const mins = testMode
+                        ? minutesInCurrentStatus(d, now)
+                        : minutesWaiting(d, now);
                       const progress = operationalProgress(d.registered ? d : null);
                       return (
                         <tr key={`${d.plate}-${d.plannedArrival || index}`}>
@@ -1615,6 +1770,32 @@ function Dashboard({ testMode = false }) {
                   <span>{arrivalSla.total - arrivalSla.arrived} pendentes</span>
                   <small>{arrivalSla.missing}% ainda não chegou</small>
                 </div>
+                <div className="romaneio-alert-log">
+                  <div className="romaneio-alert-log-head">
+                    <div><p className="eyebrow">ALERTAS DE ROMANEIO</p><b>Histórico do turno</b></div>
+                    <span>{visibleRomaneioAlerts.length}</span>
+                  </div>
+                  {visibleRomaneioAlerts.length ? (
+                    <div className="romaneio-alert-items">
+                      {visibleRomaneioAlerts.map((alert) => {
+                        const driver = displayAllDrivers.find((item) => item.plate === alert.plate);
+                        const active = driver?.status === "Aguardando documentação";
+                        const waitingMinutes = active
+                          ? minutesInCurrentStatus(driver, now)
+                          : alert.threshold;
+                        return (
+                          <article key={alert.id} className={alert.threshold >= 30 ? "critical" : "attention"}>
+                            <div><strong>{alert.plate}</strong><span>{alert.route || "Rota não informada"}</span></div>
+                            <div><b>{alert.threshold >= 30 ? "CRÍTICO" : "ATENÇÃO"}</b><span>{alert.carrier || "Transportadora não informada"}</span></div>
+                            <div className="romaneio-alert-time"><strong>{waitingMinutes} min</strong><span>{active ? "aguardando" : "regularizado"}</span></div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <small className="romaneio-alert-empty">Nenhum alerta de romaneio registrado neste turno.</small>
+                  )}
+                </div>
                 <button type="button" className="arrival-wave" onClick={() => setWaveOpen(true)} aria-label="Abrir gráfico completo do horário operacional">
                   <div className="arrival-wave-head">
                     <b>Movimento por horário</b>
@@ -1698,7 +1879,7 @@ function Dashboard({ testMode = false }) {
       ) : null}
       {testMode && testPopup ? (
         <div className="test-alert-overlay" role="dialog" aria-modal="true" aria-labelledby="test-alert-title">
-          <div className="test-alert-popup">
+          <div className={`test-alert-popup ${testPopup.critical ? "critical" : ""}`}>
             <AlertTriangle size={34} />
             <p className="eyebrow">ALERTA OPERACIONAL</p>
             <h2 id="test-alert-title">{testPopup.message}</h2>
@@ -1737,6 +1918,8 @@ function Dashboard({ testMode = false }) {
               <article className="success"><span>CHEGARAM</span><strong>{arrivalManagement.arrived}</strong><small>{arrivalSla.percent}% da programação</small></article>
               <article className="warning"><span>PENDENTES</span><strong>{visibleScheduleRows.length - arrivalManagement.arrived}</strong><small>{arrivalManagement.overdue} já atrasados</small></article>
               <article className="info"><span>DENTRO DO HORÁRIO</span><strong>{arrivalManagement.onTime}</strong><small>{arrivalManagement.lateArrivals} chegaram atrasados</small></article>
+              <article className="professional"><span>PONTUALIDADE</span><strong>{arrivalManagement.punctuality}%</strong><small>sobre os que chegaram</small></article>
+              <article className="danger"><span>ATRASO MÉDIO</span><strong>{arrivalManagement.averageDelay} min</strong><small>{arrivalManagement.critical} críticos acima de 30 min</small></article>
             </div>
             <div className="wave-modal-legend"><span><i className="planned" /> Programados</span><span><i className="arrived" /> Chegaram</span></div>
             <div className="wave-modal-chart">
