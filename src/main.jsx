@@ -817,7 +817,7 @@ function Dashboard({ testMode = false }) {
           ? []
         : scheduleRows.filter(
             (item) =>
-              item.carrier === testCarrier &&
+              (testCarrier === "TODAS" || item.carrier === testCarrier) &&
               (testCdc === "TODOS" || item.cdc === testCdc),
           ),
     [scheduleRows, testMode, testCarrier, testCdc],
@@ -1427,13 +1427,14 @@ function Dashboard({ testMode = false }) {
                 {testMode ? (
                   <details className="test-filters" ref={filterDetailsRef}>
                     <summary>
-                      {testCarrier ? `Transportadora • ${testCarrier}` : "Selecionar transportadora"}{testCdc !== "TODOS" ? ` • ${testCdc}` : ""}
+                      {testCarrier ? `Transportadora • ${testCarrier === "TODAS" ? "Todas" : testCarrier}` : "Selecionar transportadora"}{testCdc !== "TODOS" ? ` • ${testCdc}` : ""}
                     </summary>
                     <div className="test-filter-fields">
                       <label>
                         Transportadora
                         <select value={testCarrier} onChange={(event) => setTestCarrier(event.target.value)}>
                           <option value="">Selecione...</option>
+                          <option value="TODAS">Todas as transportadoras</option>
                           {carrierOptions.map((carrier) => <option key={carrier} value={carrier}>{carrier}</option>)}
                         </select>
                       </label>
@@ -1727,7 +1728,7 @@ function Dashboard({ testMode = false }) {
             <h2 id="wave-modal-title">Movimento de chegadas • 22h às 6h</h2>
             <p className="wave-modal-description">Comparativo por hora entre os veículos programados e os registros de chegada ao CDC.</p>
             <div className="wave-management-scope">
-              <span>TRANSPORTADORA <b>{testCarrier}</b></span>
+              <span>TRANSPORTADORA <b>{testCarrier === "TODAS" ? "Todas as transportadoras" : testCarrier}</b></span>
               <span>CDC <b>{testCdc === "TODOS" ? "Todos da programação" : testCdc}</b></span>
               <span>DATA <b>{scheduleReferenceDate || "—"}</b></span>
             </div>
@@ -1775,7 +1776,7 @@ function Dashboard({ testMode = false }) {
                 {arrivalManagement.rows.map((item) => (
                   <article key={`${item.date}-${item.plate}`} className={item.delayed ? "delayed" : item.arrived ? "arrived" : "waiting"}>
                     <div className="wave-vehicle-plate"><span>PLACA</span><b>{item.plate}</b></div>
-                    <div><span>TRANSPORTADORA</span><b>{item.carrier || testCarrier || "—"}</b></div>
+                    <div><span>TRANSPORTADORA</span><b>{item.carrier || (testCarrier === "TODAS" ? "Não informada" : testCarrier) || "—"}</b></div>
                     <div><span>ROTA</span><b>{item.route || "Não informada"}</b></div>
                     <div><span>PROGRAMADO</span><b>{item.time}</b></div>
                     <div><span>CHEGADA REAL</span><b>{formatArrivalHour(item.actualMillis)}</b></div>
