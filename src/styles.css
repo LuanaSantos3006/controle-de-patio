@@ -2726,12 +2726,20 @@ html, body, #root, .app, .app main { background: #10213e; }
 .arrival-sla-copy.compact span { font-size: 10px; }
 .arrival-sla-copy.compact small { margin-left: auto; text-align: right; }
 .arrival-wave {
+  display: block;
+  width: 100%;
   margin-top: 13px;
   padding: 10px 10px 7px;
   border: 1px solid #365c84;
   border-radius: 10px;
   background: #071d39;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease;
 }
+.arrival-wave:hover { border-color: #68b9ff; transform: translateY(-1px); box-shadow: 0 8px 18px #020b1d70; }
+.arrival-wave:focus-visible { outline: 2px solid #62c8ff; outline-offset: 2px; }
 .arrival-wave-head {
   display: flex;
   align-items: center;
@@ -2757,6 +2765,80 @@ html, body, #root, .app, .app main { background: #10213e; }
 .arrival-wave .wave-planned { stroke: #50a5ff; opacity: .75; }
 .arrival-wave .wave-arrived { stroke: #56e1ae; animation-delay: .25s; }
 .arrival-wave-axis { display: flex; justify-content: space-between; color: #7798ba; font-size: 7px; }
+.arrival-wave-axis span:nth-child(2) { color: #62bfff; font-weight: 900; letter-spacing: .05em; }
+
+.wave-modal-overlay {
+  position: fixed;
+  z-index: 1100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: #020817dc;
+  backdrop-filter: blur(5px);
+}
+.wave-modal {
+  position: relative;
+  width: min(980px, 96vw);
+  max-height: 92vh;
+  padding: 28px;
+  overflow-y: auto;
+  border: 1px solid #527ba6;
+  border-radius: 20px;
+  background: linear-gradient(145deg, #15385f, #081f3e);
+  box-shadow: 0 30px 90px #000c;
+  color: #fff;
+}
+.wave-modal-close {
+  position: absolute;
+  top: 17px;
+  right: 17px;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid #557ba2;
+  border-radius: 10px;
+  background: #0a2748;
+  color: #fff;
+  cursor: pointer;
+}
+.wave-modal h2 { margin: 4px 48px 6px 0; color: #fff; font: 800 24px/1.2 Manrope, sans-serif; }
+.wave-modal-description { margin: 0; color: #afc8e2; font-size: 12px; }
+.wave-modal-legend { display: flex; justify-content: flex-end; gap: 17px; margin: 18px 0 4px; color: #c8daed; font-size: 10px; }
+.wave-modal-legend span { display: flex; align-items: center; gap: 6px; }
+.wave-modal-legend i { width: 9px; height: 9px; border-radius: 50%; }
+.wave-modal-legend i.planned { background: #56aaff; }
+.wave-modal-legend i.arrived { background: #55e1ac; }
+.wave-modal-chart {
+  padding: 13px;
+  border: 1px solid #3f6389;
+  border-radius: 14px;
+  background: #061a34;
+}
+.wave-modal-chart svg { display: block; width: 100%; height: 330px; overflow: visible; }
+.wave-modal-chart line { stroke: #365574; stroke-width: 1; }
+.wave-modal-chart polyline { fill: none; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.wave-modal-chart .wave-planned { stroke: #56aaff; }
+.wave-modal-chart .wave-arrived { stroke: #55e1ac; }
+.wave-modal-chart .planned-point { fill: #56aaff; stroke: #d8ecff; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.wave-modal-chart .arrived-point { fill: #55e1ac; stroke: #ddfff3; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.wave-modal-chart text { fill: #b8cee5; font-size: 13px; font-weight: 800; }
+.wave-hour-summary { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 7px; margin-top: 12px; }
+.wave-hour-summary div { padding: 9px 5px; border: 1px solid #34597f; border-radius: 9px; background: #102f52; text-align: center; }
+.wave-hour-summary b,
+.wave-hour-summary span,
+.wave-hour-summary small { display: block; }
+.wave-hour-summary b { color: #93cfff; font-size: 9px; }
+.wave-hour-summary span { margin: 3px 0; color: #fff; font: 800 16px/1 Manrope, sans-serif; }
+.wave-hour-summary small { color: #9fb8d2; font-size: 7px; }
+@media (max-width: 700px) {
+  .wave-modal-overlay { padding: 10px; }
+  .wave-modal { width: 100%; padding: 20px 14px; }
+  .wave-modal h2 { font-size: 19px; }
+  .wave-modal-chart svg { width: 100%; height: 245px; }
+  .wave-hour-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 .compact-levels {
   margin-top: 10px;
   padding: 0;
