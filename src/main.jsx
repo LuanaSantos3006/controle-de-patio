@@ -598,6 +598,7 @@ function Dashboard({ testMode = false }) {
   const [testCdc, setTestCdc] = useState("TODOS");
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [testPopup, setTestPopup] = useState(null);
+  const [waveOpen, setWaveOpen] = useState(false);
   const soundContextRef = useRef(null);
   const filterDetailsRef = useRef(null);
   const shownRomaneioPopupRef = useRef(new Set());
@@ -950,40 +951,48 @@ function Dashboard({ testMode = false }) {
     [arrivalCriticalRows],
   );
   const arrivalWave = useMemo(() => {
-    const buckets = new Map();
+    const operationalHours = [22, 23, 0, 1, 2, 3, 4, 5, 6];
+    const buckets = new Map(
+      operationalHours.map((hour) => [hour, { hour, planned: 0, arrived: 0 }]),
+    );
     visibleScheduleRows.forEach((item) => {
       const match = String(item.time || "").match(/(\d{1,2}):/);
       if (!match) return;
       const hour = Number(match[1]);
-      const operationalHour = hour < 12 ? hour + 24 : hour;
-      const current = buckets.get(operationalHour) || {
-        hour,
-        planned: 0,
-        arrived: 0,
-      };
+      if (!buckets.has(hour)) return;
+      const current = buckets.get(hour);
       current.planned += 1;
       if (displayAllDrivers.some((driver) => driver.plate === item.plate && driver.arrivalAt))
         current.arrived += 1;
-      buckets.set(operationalHour, current);
+      buckets.set(hour, current);
     });
-    const values = [...buckets.entries()]
-      .sort(([a], [b]) => a - b)
-      .map(([, value]) => value);
-    const chartValues = values.length === 1 ? [values[0], values[0]] : values;
-    const max = Math.max(1, ...chartValues.map((item) => item.planned));
+    const values = operationalHours.map((hour) => buckets.get(hour));
+    const max = Math.max(1, ...values.map((item) => item.planned));
     const points = (key) =>
-      chartValues
+      values
         .map((item, index) => {
-          const x = chartValues.length > 1 ? (index / (chartValues.length - 1)) * 300 : 0;
+          const x = (index / (values.length - 1)) * 300;
           const y = 62 - (item[key] / max) * 50;
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        })
+        .join(" ");
+    const fullPoints = (key) =>
+      values
+        .map((item, index) => {
+          const x = 45 + (index / (values.length - 1)) * 630;
+          const y = 190 - (item[key] / max) * 145;
           return `${x.toFixed(1)},${y.toFixed(1)}`;
         })
         .join(" ");
     return {
       planned: points("planned"),
       arrived: points("arrived"),
-      first: values.length ? `${String(values[0].hour).padStart(2, "0")}h` : "—",
-      last: values.length ? `${String(values.at(-1).hour).padStart(2, "0")}h` : "—",
+      fullPlanned: fullPoints("planned"),
+      fullArrived: fullPoints("arrived"),
+      values,
+      max,
+      first: "22h",
+      last: "06h",
     };
   }, [visibleScheduleRows, displayAllDrivers]);
   const playAlert = (kind) => {
@@ -1533,7 +1542,7 @@ function Dashboard({ testMode = false }) {
                   <span>{arrivalSla.total - arrivalSla.arrived} pendentes</span>
                   <small>{arrivalSla.missing}% ainda não chegou</small>
                 </div>
-                <div className="arrival-wave">
+                <button type="button" className="arrival-wave" onClick={() => setWaveOpen(true)} aria-label="Abrir gráfico completo do horário operacional">
                   <div className="arrival-wave-head">
                     <b>Movimento por horário</b>
                     <span><i className="planned" /> Programados <i className="arrived" /> Chegaram</span>
@@ -1543,8 +1552,8 @@ function Dashboard({ testMode = false }) {
                     <polyline className="wave-planned" points={arrivalWave.planned} />
                     <polyline className="wave-arrived" points={arrivalWave.arrived} />
                   </svg>
-                  <div className="arrival-wave-axis"><span>{arrivalWave.first}</span><span>{arrivalWave.last}</span></div>
-                </div>
+                  <div className="arrival-wave-axis"><span>{arrivalWave.first}</span><span>CLIQUE PARA AMPLIAR</span><span>{arrivalWave.last}</span></div>
+                </button>
                 <div className="delay-levels compact-levels">
                   {[1, 2, 3].map((level) => {
                     const totalDelayed = arrivalCriticalRows.length;
@@ -1612,6 +1621,41 @@ function Dashboard({ testMode = false }) {
             <p>Veículo(s): <b>{testPopup.plates}</b></p>
             <button onClick={() => setTestPopup(null)}>Entendi</button>
           </div>
+        </div>
+      ) : null}
+      {testMode && waveOpen ? (
+        <div className="wave-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="wave-modal-title" onClick={(event) => event.target === event.currentTarget && setWaveOpen(false)}>
+          <section className="wave-modal">
+            <button className="wave-modal-close" onClick={() => setWaveOpen(false)} aria-label="Fechar gráfico"><X size={20} /></button>
+            <p className="eyebrow">JANELA OPERACIONAL COMPLETA</p>
+            <h2 id="wave-modal-title">Movimento de chegadas • 22h às 6h</h2>
+            <p className="wave-modal-description">Comparativo por hora entre os veículos programados e os registros de chegada ao CDC.</p>
+            <div className="wave-modal-legend"><span><i className="planned" /> Programados</span><span><i className="arrived" /> Chegaram</span></div>
+            <div className="wave-modal-chart">
+              <svg viewBox="0 0 720 230" preserveAspectRatio="none">
+                {[45, 93, 142, 190].map((y) => <line key={y} x1="45" y1={y} x2="675" y2={y} />)}
+                <polyline className="wave-planned" points={arrivalWave.fullPlanned} />
+                <polyline className="wave-arrived" points={arrivalWave.fullArrived} />
+                {arrivalWave.values.map((item, index) => {
+                  const x = 45 + (index / (arrivalWave.values.length - 1)) * 630;
+                  const plannedY = 190 - (item.planned / arrivalWave.max) * 145;
+                  const arrivedY = 190 - (item.arrived / arrivalWave.max) * 145;
+                  return (
+                    <g key={item.hour}>
+                      <circle className="planned-point" cx={x} cy={plannedY} r="5" />
+                      <circle className="arrived-point" cx={x} cy={arrivedY} r="5" />
+                      <text x={x} y="216" textAnchor="middle">{String(item.hour).padStart(2, "0")}h</text>
+                    </g>
+                  );
+                })}
+              </svg>
+            </div>
+            <div className="wave-hour-summary">
+              {arrivalWave.values.map((item) => (
+                <div key={item.hour}><b>{String(item.hour).padStart(2, "0")}h</b><span>{item.arrived}/{item.planned}</span><small>chegaram</small></div>
+              ))}
+            </div>
+          </section>
         </div>
       ) : null}
     </>
