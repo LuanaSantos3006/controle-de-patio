@@ -2483,3 +2483,17 @@ html, body, #root, .app, .app main { background: #10213e; }
 .app .dock-count { color: #b9ffe4; background: #145642; }
 .app .expand-map { color: #ddecff; background: #1c385d; border-color: #4e6f96; }
 .app .conveyor { background: #284363; border: 1px solid #4a6788; }
+
+.test-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid #f6c453;
+  border-radius: 10px;
+  background: #fff4cf;
+  color: #7a5100;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
