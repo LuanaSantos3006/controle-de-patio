@@ -345,6 +345,8 @@ const SCHEDULE_LINK_KEY = "controle-patio-programacao-link";
 const TEST_SCHEDULE_LINK_KEY = "controle-patio-programacao-link-teste";
 const TEST_CARRIER_KEY = "controle-patio-transportadora-teste";
 const TEST_CDC_KEY = "controle-patio-cdc-teste";
+const PANEL_CARRIER_KEY = "controle-patio-transportadora";
+const PANEL_CDC_KEY = "controle-patio-cdc";
 const PANEL_DEVICE_KEY = "controle-patio-painel-dispositivo";
 const DRIVER_SESSION_KEY = "controle-patio-motorista-atual";
 
@@ -614,7 +616,7 @@ function Dashboard({ testMode = false }) {
   const [closingTurn, setClosingTurn] = useState(false);
   const [turnMessage, setTurnMessage] = useState("");
   const [mapOpen, setMapOpen] = useState(false);
-  const [mapCollapsed, setMapCollapsed] = useState(testMode);
+  const [mapCollapsed, setMapCollapsed] = useState(true);
   const [scheduleLink, setScheduleLink] = useState(() =>
     typeof window === "undefined"
       ? ""
@@ -631,14 +633,14 @@ function Dashboard({ testMode = false }) {
   const [manualReleaseError, setManualReleaseError] = useState("");
   const [now, setNow] = useState(Date.now());
   const [testCarrier, setTestCarrier] = useState(() =>
-    testMode ? localStorage.getItem(TEST_CARRIER_KEY) || "" : "",
+    localStorage.getItem(testMode ? TEST_CARRIER_KEY : PANEL_CARRIER_KEY) || "",
   );
   const [testCdc, setTestCdc] = useState(() =>
-    testMode ? localStorage.getItem(TEST_CDC_KEY) || "TODOS" : "TODOS",
+    localStorage.getItem(testMode ? TEST_CDC_KEY : PANEL_CDC_KEY) || "TODOS",
   );
   const [romaneioAlerts, setRomaneioAlerts] = useState([]);
   const [soundEnabled, setSoundEnabled] = useState(false);
-  const [soundPromptOpen, setSoundPromptOpen] = useState(testMode);
+  const [soundPromptOpen, setSoundPromptOpen] = useState(true);
   const [testPopup, setTestPopup] = useState(null);
   const [waveOpen, setWaveOpen] = useState(false);
   const [delayModalLevel, setDelayModalLevel] = useState(null);
@@ -663,7 +665,7 @@ function Dashboard({ testMode = false }) {
     );
   }, []);
   useEffect(() => {
-    if (!testMode || !firebaseReady || !db) return;
+    if (!firebaseReady || !db) return;
     return onSnapshot(collection(db, "alertas"), (snap) =>
       setRomaneioAlerts(
         snap.docs
@@ -671,15 +673,15 @@ function Dashboard({ testMode = false }) {
           .filter((item) => String(item.type || "").startsWith("ROMANEIO_")),
       ),
     );
-  }, [testMode]);
+  }, []);
   useEffect(() => {
-    if (!testMode) return;
-    if (testCarrier) localStorage.setItem(TEST_CARRIER_KEY, testCarrier);
-    else localStorage.removeItem(TEST_CARRIER_KEY);
-    localStorage.setItem(TEST_CDC_KEY, testCdc);
+    const carrierKey = testMode ? TEST_CARRIER_KEY : PANEL_CARRIER_KEY;
+    const cdcKey = testMode ? TEST_CDC_KEY : PANEL_CDC_KEY;
+    if (testCarrier) localStorage.setItem(carrierKey, testCarrier);
+    else localStorage.removeItem(carrierKey);
+    localStorage.setItem(cdcKey, testCdc);
   }, [testMode, testCarrier, testCdc]);
   useEffect(() => {
-    if (!testMode) return;
     const restoreWakeLock = async () => {
       if (document.visibilityState !== "visible" || !navigator.wakeLock || !soundEnabled) return;
       try {
@@ -695,13 +697,20 @@ function Dashboard({ testMode = false }) {
     if (!firebaseReady || !db) return;
     const configId = testMode
       ? `programacao_teste_${deviceId}`
-      : "programacao";
+      : `programacao_painel_${deviceId}`;
     const storageKey = testMode
       ? TEST_SCHEDULE_LINK_KEY
       : SCHEDULE_LINK_KEY;
-    return onSnapshot(doc(db, "configuracoes", configId), (snap) => {
+    return onSnapshot(doc(db, "configuracoes", configId), async (snap) => {
       if (snap.exists()) {
         const savedLink = (snap.data().link || "").trim();
+        if (savedLink) {
+          setScheduleLink(savedLink);
+          localStorage.setItem(storageKey, savedLink);
+        }
+      } else if (!testMode && !localStorage.getItem(storageKey)) {
+        const legacy = await getDoc(doc(db, "configuracoes", "programacao"));
+        const savedLink = legacy.exists() ? (legacy.data().link || "").trim() : "";
         if (savedLink) {
           setScheduleLink(savedLink);
           localStorage.setItem(storageKey, savedLink);
@@ -710,10 +719,11 @@ function Dashboard({ testMode = false }) {
     });
   }, [testMode, deviceId]);
   useEffect(() => {
-    if (!testMode) return;
     const currentLink = scheduleLink.trim();
-    if (currentLink)
-      localStorage.setItem(TEST_SCHEDULE_LINK_KEY, currentLink);
+    if (currentLink) localStorage.setItem(
+      testMode ? TEST_SCHEDULE_LINK_KEY : SCHEDULE_LINK_KEY,
+      currentLink,
+    );
   }, [testMode, scheduleLink]);
   useEffect(() => {
     if (!firebaseReady || !db) return;
@@ -729,7 +739,6 @@ function Dashboard({ testMode = false }) {
     return () => clearInterval(timer);
   }, []);
   useEffect(() => {
-    if (!testMode) return;
     const closeFilter = (event) => {
       const details = filterDetailsRef.current;
       if (!details?.open) return;
@@ -868,16 +877,14 @@ function Dashboard({ testMode = false }) {
   );
   const visibleScheduleRows = useMemo(
     () =>
-      !testMode
-        ? scheduleRows
-        : !testCarrier
+      !testCarrier
           ? []
         : scheduleRows.filter(
             (item) =>
               (testCarrier === "TODAS" || item.carrier === testCarrier) &&
               (testCdc === "TODOS" || item.cdc === testCdc),
           ),
-    [scheduleRows, testMode, testCarrier, testCdc],
+    [scheduleRows, testCarrier, testCdc],
   );
   const visiblePlateSet = useMemo(
     () => new Set(visibleScheduleRows.map((item) => item.plate)),
@@ -885,10 +892,8 @@ function Dashboard({ testMode = false }) {
   );
   const displayAllDrivers = useMemo(
     () =>
-      testMode
-        ? allDrivers.filter((driver) => visiblePlateSet.has(driver.plate))
-        : allDrivers,
-    [testMode, allDrivers, visiblePlateSet],
+      allDrivers.filter((driver) => visiblePlateSet.has(driver.plate)),
+    [allDrivers, visiblePlateSet],
   );
   const displayActiveDrivers = useMemo(
     () => displayAllDrivers.filter((driver) => driver.status !== "Veículo liberado"),
@@ -896,7 +901,7 @@ function Dashboard({ testMode = false }) {
   );
   const filtered = useMemo(
     () => {
-      const rows = scheduleRows.length || testMode
+      const rows = scheduleRows.length
         ? visibleScheduleRows.map((item) => {
             const record = allDrivers.find(
               (driver) =>
@@ -925,7 +930,7 @@ function Dashboard({ testMode = false }) {
           operationalProgress(a.registered ? a : null).percent,
         );
     },
-    [query, visibleScheduleRows, allDrivers, scheduleRows.length, testMode],
+    [query, visibleScheduleRows, allDrivers, scheduleRows.length],
   );
   const liveDocks = useMemo(
     () =>
@@ -950,7 +955,7 @@ function Dashboard({ testMode = false }) {
   const released = displayAllDrivers.filter(
     (d) => d.status === "Veículo liberado",
   ).length;
-  const operationalDocks = testMode ? testDocks : docks;
+  const operationalDocks = testDocks;
   const availableDocks = operationalDocks.filter(
     (d) => !d.blocked && !liveDocks[d.id],
   );
@@ -1249,7 +1254,6 @@ function Dashboard({ testMode = false }) {
     setSoundPromptOpen(false);
   };
   useEffect(() => {
-    if (!testMode) return;
     const overdueRomaneio = displayActiveDrivers.filter((driver) => {
       if (driver.status !== "Aguardando documentação") return false;
       const startedAt =
@@ -1351,7 +1355,7 @@ function Dashboard({ testMode = false }) {
         doc(
           db,
           "configuracoes",
-          testMode ? `programacao_teste_${deviceId}` : "programacao",
+          testMode ? `programacao_teste_${deviceId}` : `programacao_painel_${deviceId}`,
         ),
         testMode
           ? {
@@ -1360,14 +1364,17 @@ function Dashboard({ testMode = false }) {
               deviceId,
               updatedAt: serverTimestamp(),
             }
-          : { link: savedLink, updatedAt: serverTimestamp() },
+          : {
+              link: savedLink,
+              type: "programacao_painel",
+              deviceId,
+              updatedAt: serverTimestamp(),
+            },
         { merge: true },
       );
       setScheduleLink(savedLink);
-      if (testMode) {
-        setTestCarrier("");
-        setTestCdc("TODOS");
-      }
+      setTestCarrier("");
+      setTestCdc("TODOS");
     } catch (error) {
       setScheduleError(error.message || "Não foi possível salvar o link.");
     }
@@ -1480,17 +1487,15 @@ function Dashboard({ testMode = false }) {
           <h1>{pageCopy[0]}</h1>
           <p className="sub">{pageCopy[1]}</p>
         </div>
-        {testMode ? (
-          <div className="test-header-actions">
-            <button
-              className={`sound-toggle ${soundEnabled ? "active" : ""}`}
-              onClick={enableSounds}
-            >
-              {soundEnabled ? "🔊 Alertas sonoros ativos" : "🔇 Ativar alertas sonoros"}
-            </button>
-            <span className="test-mode-badge">AMBIENTE DE TESTE</span>
-          </div>
-        ) : (
+        <div className="test-header-actions">
+          <button
+            className={`sound-toggle ${soundEnabled ? "active" : ""}`}
+            onClick={enableSounds}
+          >
+            {soundEnabled ? "🔊 Alertas sonoros ativos" : "🔇 Ativar alertas sonoros"}
+          </button>
+          {testMode ? <span className="test-mode-badge">AMBIENTE DE TESTE</span> : null}
+          {!testMode ? (
           <button
             className="close-turn-button"
             onClick={closeTurn}
@@ -1499,7 +1504,8 @@ function Dashboard({ testMode = false }) {
             <LogOut size={17} />
             {closingTurn ? "Encerrando..." : "Encerrar turno"}
           </button>
-        )}
+          ) : null}
+        </div>
       </header>
       {turnMessage ? (
         <p
@@ -1629,7 +1635,7 @@ function Dashboard({ testMode = false }) {
         </>
       ) : null}
       {activeNav === "Visão geral" ? (
-        <section className={`grid-main ${testMode ? "test-grid-main" : ""}`}>
+        <section className="grid-main test-grid-main">
           <div className="panel live">
             <div className="panel-head">
               <div>
@@ -1637,8 +1643,7 @@ function Dashboard({ testMode = false }) {
                 <p>Horários programados e evolução automática pelo link do motorista e pelos QR Codes</p>
               </div>
               <div className="accompaniment-actions">
-                {testMode ? (
-                  <details className="test-filters" ref={filterDetailsRef}>
+                <details className="test-filters" ref={filterDetailsRef}>
                     <summary>
                       {testCarrier ? `Transportadora • ${testCarrier === "TODAS" ? "Todas" : testCarrier}` : "Selecionar transportadora"}{testCdc !== "TODOS" ? ` • ${testCdc}` : ""}
                     </summary>
@@ -1659,8 +1664,7 @@ function Dashboard({ testMode = false }) {
                         </select>
                       </label>
                     </div>
-                  </details>
-                ) : null}
+                </details>
                 <div className="search">
                   <Search size={16} />
                   <input
@@ -1700,9 +1704,7 @@ function Dashboard({ testMode = false }) {
                 <tbody>
                   {filtered.length ? (
                     filtered.map((d, index) => {
-                      const mins = testMode
-                        ? minutesInCurrentStatus(d, now)
-                        : minutesWaiting(d, now);
+                      const mins = minutesInCurrentStatus(d, now);
                       const progress = operationalProgress(d.registered ? d : null);
                       return (
                         <tr key={`${d.plate}-${d.plannedArrival || index}`}>
@@ -1776,7 +1778,7 @@ function Dashboard({ testMode = false }) {
                   ) : (
                     <tr>
                       <td colSpan="8" className="empty-row">
-                        {testMode && !testCarrier
+                        {!testCarrier
                           ? "Selecione uma transportadora no filtro para exibir o acompanhamento"
                           : "Nenhum veículo na programação vigente"}
                       </td>
@@ -1813,7 +1815,7 @@ function Dashboard({ testMode = false }) {
                 <div><b>{released}</b><span>liberados hoje</span></div>
               </div>
             </div>
-            {testMode && testCarrier ? (
+            {testCarrier ? (
               <section className="test-side-dashboard" aria-label="Indicadores de chegada">
                 <div className="test-side-title">
                   <div>
@@ -1900,13 +1902,13 @@ function Dashboard({ testMode = false }) {
                   </button>
                 ) : null}
               </section>
-            ) : testMode ? (
+            ) : (
               <div className="test-dashboard-collapsed">
                 <span>PAINEL RECOLHIDO</span>
                 <b>Selecione uma transportadora</b>
                 <small>Os indicadores, níveis de atraso e gráfico serão exibidos após a seleção.</small>
               </div>
-            ) : null}
+            )}
             <div className="alert">
               <AlertTriangle size={18} />
               <div>
@@ -1923,8 +1925,8 @@ function Dashboard({ testMode = false }) {
             liveDocks={liveDocks}
             dockList={operationalDocks}
             expanded={false}
-            collapsed={testMode && mapCollapsed}
-            onToggle={testMode ? () => setMapCollapsed((current) => !current) : null}
+            collapsed={mapCollapsed}
+            onToggle={() => setMapCollapsed((current) => !current)}
             onExpand={() => setMapOpen(true)}
           />
           {mapOpen ? (
@@ -1937,7 +1939,7 @@ function Dashboard({ testMode = false }) {
           ) : null}
         </>
       ) : null}
-      {testMode && testPopup ? (
+      {testPopup ? (
         <div className="test-alert-overlay" role="dialog" aria-modal="true" aria-labelledby="test-alert-title">
           <div className={`test-alert-popup ${testPopup.critical ? "critical" : ""}`}>
             <AlertTriangle size={34} />
@@ -1948,7 +1950,7 @@ function Dashboard({ testMode = false }) {
           </div>
         </div>
       ) : null}
-      {testMode && soundPromptOpen ? (
+      {soundPromptOpen ? (
         <div className="sound-prompt-overlay" role="dialog" aria-modal="true" aria-labelledby="sound-prompt-title">
           <section className="sound-prompt">
             <div className="sound-prompt-icon" aria-hidden="true">🔊</div>
@@ -1961,7 +1963,7 @@ function Dashboard({ testMode = false }) {
           </section>
         </div>
       ) : null}
-      {testMode && waveOpen ? (
+      {waveOpen ? (
         <div className="wave-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="wave-modal-title" onClick={(event) => event.target === event.currentTarget && setWaveOpen(false)}>
           <section className="wave-modal">
             <button className="wave-modal-close" onClick={() => setWaveOpen(false)} aria-label="Fechar gráfico"><X size={20} /></button>
@@ -2083,7 +2085,7 @@ function Dashboard({ testMode = false }) {
           </section>
         </div>
       ) : null}
-      {testMode && delayModalLevel ? (
+      {delayModalLevel ? (
         <div className="delay-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="delay-modal-title" onClick={(event) => event.target === event.currentTarget && setDelayModalLevel(null)}>
           <section className="delay-modal">
             <button className="delay-modal-close" onClick={() => setDelayModalLevel(null)} aria-label="Fechar lista"><X size={20} /></button>
