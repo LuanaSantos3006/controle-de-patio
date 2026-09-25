@@ -2894,6 +2894,71 @@ html, body, #root, .app, .app main { background: #10213e; }
 .wave-management-kpis span { color: #9db8d4; font-size: 8px; font-weight: 900; letter-spacing: .05em; }
 .wave-management-kpis strong { margin: 5px 0 2px; color: #fff; font: 800 25px/1 Manrope, sans-serif; }
 .wave-management-kpis small { color: #bdd0e3; font-size: 8px; }
+.wave-executive-highlights {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 10px;
+}
+.wave-executive-highlights span {
+  padding: 9px 12px;
+  border: 1px solid #2e6fa5;
+  border-radius: 9px;
+  background: linear-gradient(90deg, #0d3155, #102744);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+.wave-executive-highlights b { display: block; margin-bottom: 3px; color: #6fc3ff; font-size: 8px; letter-spacing: .06em; text-transform: uppercase; }
+.executive-analysis-grid { display: grid; grid-template-columns: .85fr 1.15fr; gap: 12px; margin-top: 12px; }
+.executive-card {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid #315b84;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #0b2546, #071a35);
+  box-shadow: inset 0 1px 0 #ffffff0d, 0 8px 22px #020b1852;
+}
+.executive-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 11px; }
+.executive-card-heading p { margin: 0 0 3px; color: #48b4ff; font-size: 8px; font-weight: 900; letter-spacing: .08em; }
+.executive-card-heading h3 { margin: 0; color: #fff; font: 800 15px/1.2 Manrope, sans-serif; }
+.executive-card-heading > span { flex: 0 0 auto; padding: 5px 8px; border-radius: 999px; background: #113b62; color: #9dd4ff; font-size: 8px; font-weight: 800; }
+.status-composition-body { display: grid; grid-template-columns: 168px minmax(0, 1fr); align-items: center; gap: 18px; min-height: 245px; }
+.status-donut { display: grid; width: 168px; height: 168px; place-items: center; border-radius: 50%; box-shadow: 0 0 28px #148bd333; }
+.status-donut > div { display: grid; width: 108px; height: 108px; place-items: center; align-content: center; border-radius: 50%; background: #081e3a; box-shadow: inset 0 0 18px #0007; }
+.status-donut strong { color: #fff; font: 900 30px/1 Manrope, sans-serif; }
+.status-donut small { margin-top: 5px; color: #99b8d4; font-size: 9px; }
+.status-legend { display: grid; gap: 8px; }
+.status-legend > span { display: grid; grid-template-columns: 8px 1fr auto auto; align-items: center; gap: 7px; padding-bottom: 7px; border-bottom: 1px solid #254667; color: #c0d4e8; font-size: 9px; }
+.status-legend i { width: 8px; height: 8px; border-radius: 50%; }
+.status-legend b { color: #fff; font-size: 13px; }
+.status-legend small { width: 28px; color: #8aabc9; text-align: right; }
+.status-legend .on-time i { background: #4ee0ad; }
+.status-legend .late i { background: #ffb12e; }
+.status-legend .overdue i { background: #ff4f66; }
+.status-legend .future i { background: #4da9ff; }
+.hourly-evolution .wave-modal-legend { margin: -1px 0 4px; }
+.hourly-evolution .wave-modal-chart { padding: 5px 8px; border: 0; background: transparent; }
+.hourly-evolution .wave-modal-chart svg { height: 245px; }
+.wave-modal-chart text.arrived-label { fill: #55e1ac; }
+.executive-ranking-list { display: grid; gap: 11px; }
+.executive-ranking-row { display: grid; grid-template-columns: 24px 115px minmax(60px, 1fr) 34px 32px; align-items: center; gap: 8px; min-width: 0; }
+.executive-ranking-row .ranking-position { color: #4db8ff; font-size: 9px; font-weight: 900; }
+.executive-ranking-row > b { overflow: hidden; color: #dcecff; font-size: 9px; white-space: nowrap; text-overflow: ellipsis; }
+.ranking-track { height: 11px; overflow: hidden; border: 1px solid #24567f; border-radius: 3px; background: #071a32; }
+.ranking-track i { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, #09cae8, #168be8); box-shadow: 0 0 10px #08cdec66; }
+.executive-ranking-row strong { color: #fff; font-size: 10px; text-align: right; }
+.executive-ranking-row small { color: #53dbad; font-size: 9px; font-weight: 800; text-align: right; }
+.carrier-performance-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.carrier-performance-list article { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; min-width: 0; padding: 9px 10px; border: 1px solid #284f76; border-radius: 9px; background: #0d2a4b; }
+.carrier-performance-list article > div:first-child { min-width: 0; }
+.carrier-performance-list b,
+.carrier-performance-list span { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.carrier-performance-list b { color: #fff; font-size: 10px; }
+.carrier-performance-list span { margin-top: 2px; color: #86a8c7; font-size: 8px; }
+.carrier-performance-list strong { color: #55e1ac; font: 800 16px/1 Manrope, sans-serif; }
+.carrier-progress { grid-column: 1 / -1; height: 6px; overflow: hidden; border-radius: 999px; background: #06172d; }
+.carrier-progress i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #19a9e8, #55e1ac); }
 .wave-modal-legend { display: flex; justify-content: flex-end; gap: 17px; margin: 18px 0 4px; color: #c8daed; font-size: 10px; }
 .wave-modal-legend span { display: flex; align-items: center; gap: 6px; }
 .wave-modal-legend i { width: 9px; height: 9px; border-radius: 50%; }
@@ -2957,6 +3022,12 @@ html, body, #root, .app, .app main { background: #10213e; }
   .wave-modal-chart svg { width: 100%; height: 245px; }
   .wave-hour-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .wave-management-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wave-executive-highlights,
+  .executive-analysis-grid { grid-template-columns: 1fr; }
+  .status-composition-body { grid-template-columns: 1fr; justify-items: center; }
+  .status-legend { width: 100%; }
+  .carrier-performance-list { grid-template-columns: 1fr; }
+  .executive-ranking-row { grid-template-columns: 22px 90px minmax(45px, 1fr) 32px 28px; gap: 5px; }
   .wave-vehicle-list article { grid-template-columns: 1fr 1fr; gap: 8px; }
   .wave-vehicle-plate,
   .wave-vehicle-status { grid-column: 1 / -1; }
