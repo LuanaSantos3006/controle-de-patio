@@ -1389,6 +1389,7 @@ function Dashboard({ testMode = false }) {
         doc(db, "configuracoes", "operacao"),
         {
           turnStartedAt: serverTimestamp(),
+          driverSessionVersion: cutoff,
           lastClosedAt: serverTimestamp(),
           closedProgramDate: scheduleReferenceDate || "",
           lastClosedTotals: {
@@ -2007,6 +2008,7 @@ function DriverPortal() {
     .slice(0, 7)
     .toUpperCase();
   const [storedSession] = useState(savedDriverSession);
+  const driverTurnRef = useRef(Number(storedSession.turnVersion) || 0);
   const [plate, setPlate] = useState(
     queryPlate || storedSession.plate || "",
   );
@@ -2039,7 +2041,10 @@ function DriverPortal() {
     setLoading(true);
     try {
       const normalized = plate.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-      const snap = await getDoc(doc(db, "configuracoes", "programacao"));
+      const [snap, operationSnap] = await Promise.all([
+        getDoc(doc(db, "configuracoes", "programacao")),
+        getDoc(doc(db, "configuracoes", "operacao")),
+      ]);
       const link = snap.exists()
         ? snap.data().link || ""
         : localStorage.getItem(SCHEDULE_LINK_KEY) || "";
@@ -2049,12 +2054,15 @@ function DriverPortal() {
       setPlate(normalized);
       setRoute(vehicle.route || route);
       setProgrammed(vehicle);
+      const turnVersion = Number(operationSnap.data()?.driverSessionVersion) || 0;
+      driverTurnRef.current = turnVersion;
       try {
         localStorage.setItem(
           DRIVER_SESSION_KEY,
           JSON.stringify({
             plate: normalized,
             route: vehicle.route || route,
+            turnVersion,
           }),
         );
       } catch {
@@ -2068,12 +2076,34 @@ function DriverPortal() {
   };
 
   useEffect(() => {
-    if (
-      storedSession.plate?.length === 7 &&
-      storedSession.route?.trim().length >= 2 &&
-      (!queryPlate || queryPlate === storedSession.plate)
-    )
-      identify();
+    let cancelled = false;
+    const restoreDriver = async () => {
+      if (
+        storedSession.plate?.length !== 7 ||
+        storedSession.route?.trim().length < 2 ||
+        (queryPlate && queryPlate !== storedSession.plate)
+      )
+        return;
+      try {
+        const operationSnap = await getDoc(doc(db, "configuracoes", "operacao"));
+        const currentTurnVersion = Number(operationSnap.data()?.driverSessionVersion) || 0;
+        if (currentTurnVersion > driverTurnRef.current) {
+          driverTurnRef.current = currentTurnVersion;
+          if (!cancelled) {
+            changePlate();
+            setMessage("Novo turno iniciado. Informe novamente a placa e a rota.");
+          }
+          return;
+        }
+        if (!cancelled) identify();
+      } catch {
+        if (!cancelled) identify();
+      }
+    };
+    restoreDriver();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const changePlate = () => {
@@ -2092,6 +2122,18 @@ function DriverPortal() {
     setError("");
     setMessage("");
   };
+
+  useEffect(() => {
+    if (!db) return;
+    return onSnapshot(doc(db, "configuracoes", "operacao"), (snap) => {
+      if (!snap.exists()) return;
+      const currentTurnVersion = Number(snap.data().driverSessionVersion) || 0;
+      if (!currentTurnVersion || currentTurnVersion <= driverTurnRef.current) return;
+      driverTurnRef.current = currentTurnVersion;
+      changePlate();
+      setMessage("Novo turno iniciado. Informe novamente a placa e a rota.");
+    });
+  }, []);
 
   const updateStage = async (stage, value) => {
     setError("");
