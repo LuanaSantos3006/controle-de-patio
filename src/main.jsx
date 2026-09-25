@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   CarFront,
@@ -459,6 +459,8 @@ const locateScheduleHeader = (csv, requireTimes = true) => {
         "saida cdc",
         "saida",
       ),
+      carrierIndex: find("transportadora", "transportador", "carrier"),
+      cdcIndex: find("rdc origem", "cdc", "origem", "base"),
     };
     if (
       columns.plateIndex >= 0 &&
@@ -592,6 +594,13 @@ function Dashboard({ testMode = false }) {
   const [manualReleasePlate, setManualReleasePlate] = useState("");
   const [manualReleaseError, setManualReleaseError] = useState("");
   const [now, setNow] = useState(Date.now());
+  const [testCarrier, setTestCarrier] = useState("TODAS");
+  const [testCdc, setTestCdc] = useState("TODOS");
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [testPopup, setTestPopup] = useState(null);
+  const soundContextRef = useRef(null);
+  const alertedRomaneioRef = useRef(new Set());
+  const alertedArrivalRef = useRef(new Set());
   const pageCopy = [
     "Visão geral do pátio",
     "Acompanhe toda a operação em tempo real em um único painel.",
@@ -657,6 +666,8 @@ function Dashboard({ testMode = false }) {
           dateIndex,
           timeIndex,
           departureIndex,
+          carrierIndex,
+          cdcIndex,
         } = columns;
         const parsed = csv
           .slice(headerRow + 1)
@@ -668,6 +679,8 @@ function Dashboard({ testMode = false }) {
             date: row[dateIndex] || "",
             time: row[timeIndex] || "",
             departureTime: row[departureIndex] || "",
+            carrier: carrierIndex >= 0 ? (row[carrierIndex] || "").trim() : "",
+            cdc: cdcIndex >= 0 ? (row[cdcIndex] || "").trim() : "",
           }))
           .filter(
             (item) =>
@@ -729,10 +742,35 @@ function Dashboard({ testMode = false }) {
         .reverse(),
     [allDrivers],
   );
+  const carrierOptions = useMemo(
+    () =>
+      [...new Set(scheduleRows.map((item) => item.carrier).filter(Boolean))].sort(
+        (a, b) => a.localeCompare(b, "pt-BR"),
+      ),
+    [scheduleRows],
+  );
+  const cdcOptions = useMemo(
+    () =>
+      [...new Set(scheduleRows.map((item) => item.cdc).filter(Boolean))].sort(
+        (a, b) => a.localeCompare(b, "pt-BR"),
+      ),
+    [scheduleRows],
+  );
+  const visibleScheduleRows = useMemo(
+    () =>
+      !testMode
+        ? scheduleRows
+        : scheduleRows.filter(
+            (item) =>
+              (testCarrier === "TODAS" || item.carrier === testCarrier) &&
+              (testCdc === "TODOS" || item.cdc === testCdc),
+          ),
+    [scheduleRows, testMode, testCarrier, testCdc],
+  );
   const filtered = useMemo(
     () => {
       const rows = scheduleRows.length
-        ? scheduleRows.map((item) => {
+        ? visibleScheduleRows.map((item) => {
             const record = allDrivers.find(
               (driver) =>
                 driver.plate === item.plate && driver.programDate === item.date,
@@ -743,6 +781,8 @@ function Dashboard({ testMode = false }) {
               route: item.route || record?.route || "",
               plannedArrival: item.time,
               plannedDeparture: item.departureTime,
+              carrier: item.carrier || record?.carrier || "",
+              cdc: item.cdc || record?.cdc || "",
               registered: Boolean(record),
             };
           })
@@ -758,7 +798,7 @@ function Dashboard({ testMode = false }) {
           operationalProgress(a.registered ? a : null).percent,
         );
     },
-    [query, scheduleRows, allDrivers],
+    [query, visibleScheduleRows, allDrivers],
   );
   const liveDocks = useMemo(
     () =>
@@ -793,7 +833,7 @@ function Dashboard({ testMode = false }) {
     () =>
       scheduleReferenceDate && closedProgramDate === scheduleReferenceDate
         ? []
-        : scheduleRows
+        : visibleScheduleRows
             .map((item) => {
               const record = allDrivers.find((d) => d.plate === item.plate);
               if (
@@ -812,7 +852,7 @@ function Dashboard({ testMode = false }) {
             .filter((item) => item && item.departure.getTime() < now)
             .sort((a, b) => a.minutes - b.minutes),
     [
-      scheduleRows,
+      visibleScheduleRows,
       scheduleReferenceDate,
       closedProgramDate,
       allDrivers,
@@ -829,6 +869,96 @@ function Dashboard({ testMode = false }) {
       ),
     [departureAlerts, scheduleQuery],
   );
+  const arrivalSla = useMemo(() => {
+    const total = visibleScheduleRows.length;
+    const arrived = visibleScheduleRows.filter((item) =>
+      allDrivers.some(
+        (driver) =>
+          driver.plate === item.plate &&
+          driver.arrivalAt,
+      ),
+    ).length;
+    const percent = total ? Math.round((arrived / total) * 100) : 0;
+    return { total, arrived, percent, missing: Math.max(0, 100 - percent) };
+  }, [visibleScheduleRows, allDrivers]);
+  const arrivalCriticalRows = useMemo(
+    () =>
+      visibleScheduleRows
+        .map((item) => {
+          const arrived = allDrivers.some(
+            (driver) => driver.plate === item.plate && driver.arrivalAt,
+          );
+          const planned = scheduleDate(item.date, item.time);
+          if (arrived || !planned || planned.getTime() >= now) return null;
+          const lateMinutes = Math.floor((now - planned.getTime()) / 60000);
+          const level = lateMinutes <= 10 ? 1 : lateMinutes <= 30 ? 2 : 3;
+          return { ...item, lateMinutes, level };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.lateMinutes - a.lateMinutes),
+    [visibleScheduleRows, allDrivers, now],
+  );
+  const delayTotals = useMemo(
+    () => ({
+      1: arrivalCriticalRows.filter((item) => item.level === 1).length,
+      2: arrivalCriticalRows.filter((item) => item.level === 2).length,
+      3: arrivalCriticalRows.filter((item) => item.level === 3).length,
+    }),
+    [arrivalCriticalRows],
+  );
+  const playAlert = (kind) => {
+    if (!soundEnabled || !soundContextRef.current) return;
+    const context = soundContextRef.current;
+    const notes = kind === "romaneio" ? [880, 880] : [390, 320, 390];
+    notes.forEach((frequency, index) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      const start = context.currentTime + index * 0.23;
+      oscillator.type = kind === "romaneio" ? "sine" : "square";
+      oscillator.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.12, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.16);
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start(start);
+      oscillator.stop(start + 0.18);
+    });
+  };
+  const enableSounds = async () => {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const context = soundContextRef.current || new AudioContext();
+    soundContextRef.current = context;
+    await context.resume();
+    setSoundEnabled(true);
+  };
+  useEffect(() => {
+    if (!testMode || !soundEnabled) return;
+    const overdueRomaneio = activeDrivers.filter((driver) => {
+      if (driver.status !== "Aguardando documentação") return false;
+      const startedAt = timestampMillis(driver.cargoFinishedAt);
+      return startedAt && now - startedAt > 10 * 60000;
+    });
+    const newRomaneio = overdueRomaneio.filter(
+      (driver) => !alertedRomaneioRef.current.has(driver.plate),
+    );
+    if (newRomaneio.length) {
+      newRomaneio.forEach((driver) => alertedRomaneioRef.current.add(driver.plate));
+      playAlert("romaneio");
+      setTestPopup({
+        message: "Motorista aguardando romaneio há mais de 10 min",
+        plates: newRomaneio.map((driver) => driver.plate).join(", "),
+      });
+    }
+    const newArrivalDelays = arrivalCriticalRows.filter((item) => {
+      const key = `${item.date}-${item.plate}`;
+      if (alertedArrivalRef.current.has(key)) return false;
+      alertedArrivalRef.current.add(key);
+      return true;
+    });
+    if (newArrivalDelays.length) playAlert("chegada");
+  }, [testMode, soundEnabled, activeDrivers, arrivalCriticalRows, now]);
   const saveScheduleLink = async () => {
     setScheduleError("");
     try {
@@ -967,7 +1097,15 @@ function Dashboard({ testMode = false }) {
           <p className="sub">{pageCopy[1]}</p>
         </div>
         {testMode ? (
-          <span className="test-mode-badge">AMBIENTE DE TESTE</span>
+          <div className="test-header-actions">
+            <button
+              className={`sound-toggle ${soundEnabled ? "active" : ""}`}
+              onClick={enableSounds}
+            >
+              {soundEnabled ? "🔊 Alertas sonoros ativos" : "🔇 Ativar alertas sonoros"}
+            </button>
+            <span className="test-mode-badge">AMBIENTE DE TESTE</span>
+          </div>
         ) : (
           <button
             className="close-turn-button"
@@ -1018,6 +1156,47 @@ function Dashboard({ testMode = false }) {
               tone="green"
             />
           </section>
+          {testMode ? (
+            <section className="test-operations-panel" aria-label="Indicadores de chegada">
+              <article className="arrival-sla-card">
+                <div className="arrival-sla-head">
+                  <div>
+                    <p className="eyebrow">SLA DE CHEGADA</p>
+                    <h2>Motoristas previstos no CDC</h2>
+                  </div>
+                  <strong>{arrivalSla.percent}%</strong>
+                </div>
+                <div className="arrival-sla-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={arrivalSla.percent}>
+                  <span style={{ width: `${arrivalSla.percent}%` }} />
+                </div>
+                <div className="arrival-sla-copy">
+                  <b>Já chegaram {arrivalSla.percent}%</b>
+                  <span>Faltam {arrivalSla.missing}%</span>
+                  <small>{arrivalSla.arrived} de {arrivalSla.total} veículos registrados</small>
+                </div>
+              </article>
+              <div className="delay-levels">
+                <article className="delay-level level-1">
+                  <span>NÍVEL 1</span><strong>{delayTotals[1]}</strong><small>até 10 min</small>
+                </article>
+                <article className="delay-level level-2">
+                  <span>NÍVEL 2</span><strong>{delayTotals[2]}</strong><small>11 a 30 min</small>
+                </article>
+                <article className="delay-level level-3">
+                  <span>NÍVEL 3</span><strong>{delayTotals[3]}</strong><small>acima de 30 min</small>
+                </article>
+              </div>
+              {arrivalCriticalRows.length ? (
+                <div className="critical-time-alert">
+                  <AlertTriangle size={20} />
+                  <div>
+                    <b>Criticidade de horário: {arrivalCriticalRows.length} veículo(s) em atraso</b>
+                    <span>{arrivalCriticalRows.slice(0, 5).map((item) => `${item.plate} — ${item.lateMinutes} min (N${item.level})`).join(" • ")}</span>
+                  </div>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
           <section className="panel schedule-panel">
             <div className="schedule-config">
               <div>
@@ -1114,13 +1293,38 @@ function Dashboard({ testMode = false }) {
                 <h2>Acompanhamento operacional</h2>
                 <p>Horários programados e evolução automática pelo link do motorista e pelos QR Codes</p>
               </div>
-              <div className="search">
-                <Search size={16} />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Buscar placa ou motorista"
-                />
+              <div className="accompaniment-actions">
+                {testMode ? (
+                  <details className="test-filters">
+                    <summary>
+                      Filtros{testCarrier !== "TODAS" ? ` • ${testCarrier}` : ""}{testCdc !== "TODOS" ? ` • ${testCdc}` : ""}
+                    </summary>
+                    <div className="test-filter-fields">
+                      <label>
+                        Transportadora
+                        <select value={testCarrier} onChange={(event) => setTestCarrier(event.target.value)}>
+                          <option value="TODAS">Todas</option>
+                          {carrierOptions.map((carrier) => <option key={carrier} value={carrier}>{carrier}</option>)}
+                        </select>
+                      </label>
+                      <label>
+                        CDC
+                        <select value={testCdc} onChange={(event) => setTestCdc(event.target.value)}>
+                          <option value="TODOS">Todos</option>
+                          {cdcOptions.map((cdc) => <option key={cdc} value={cdc}>{cdc}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                  </details>
+                ) : null}
+                <div className="search">
+                  <Search size={16} />
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Buscar placa ou motorista"
+                  />
+                </div>
               </div>
             </div>
             {manualReleaseError ? (
@@ -1286,6 +1490,17 @@ function Dashboard({ testMode = false }) {
             />
           ) : null}
         </>
+      ) : null}
+      {testMode && testPopup ? (
+        <div className="test-alert-overlay" role="dialog" aria-modal="true" aria-labelledby="test-alert-title">
+          <div className="test-alert-popup">
+            <AlertTriangle size={34} />
+            <p className="eyebrow">ALERTA OPERACIONAL</p>
+            <h2 id="test-alert-title">{testPopup.message}</h2>
+            <p>Veículo(s): <b>{testPopup.plates}</b></p>
+            <button onClick={() => setTestPopup(null)}>Entendi</button>
+          </div>
+        </div>
       ) : null}
     </>
   );
