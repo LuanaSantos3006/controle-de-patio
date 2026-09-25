@@ -626,12 +626,20 @@ function Dashboard({ testMode = false }) {
       : SCHEDULE_LINK_KEY;
     return onSnapshot(doc(db, "configuracoes", configId), (snap) => {
       if (snap.exists()) {
-        const savedLink = snap.data().link || "";
-        setScheduleLink(savedLink);
-        localStorage.setItem(storageKey, savedLink);
+        const savedLink = (snap.data().link || "").trim();
+        if (savedLink) {
+          setScheduleLink(savedLink);
+          localStorage.setItem(storageKey, savedLink);
+        }
       }
     });
   }, [testMode, deviceId]);
+  useEffect(() => {
+    if (!testMode) return;
+    const currentLink = scheduleLink.trim();
+    if (currentLink)
+      localStorage.setItem(TEST_SCHEDULE_LINK_KEY, currentLink);
+  }, [testMode, scheduleLink]);
   useEffect(() => {
     if (!firebaseReady || !db) return;
     return onSnapshot(doc(db, "configuracoes", "operacao"), (snap) => {
