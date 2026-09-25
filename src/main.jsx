@@ -457,7 +457,11 @@ const scheduleDate = (dateValue, timeValue) => {
   const parts = (timeValue || "").trim().match(/(\d{1,2}):(\d{2})/);
   if (!dateKey || !parts) return null;
   const result = new Date(dateKey);
-  result.setHours(Number(parts[1]), Number(parts[2]), 0, 0);
+  const hour = Number(parts[1]);
+  result.setHours(hour, Number(parts[2]), 0, 0);
+  // A data da planilha identifica o turno. As viagens entre 21h e 23h59
+  // pertencem à noite anterior; de 00h até 06h20 permanecem na data informada.
+  if (hour >= 21) result.setDate(result.getDate() - 1);
   return result;
 };
 const locateScheduleHeader = (csv, requireTimes = true) => {
@@ -697,20 +701,13 @@ function Dashboard({ testMode = false }) {
     if (!firebaseReady || !db) return;
     const configId = testMode
       ? `programacao_teste_${deviceId}`
-      : `programacao_painel_${deviceId}`;
+      : "programacao";
     const storageKey = testMode
       ? TEST_SCHEDULE_LINK_KEY
       : SCHEDULE_LINK_KEY;
-    return onSnapshot(doc(db, "configuracoes", configId), async (snap) => {
+    return onSnapshot(doc(db, "configuracoes", configId), (snap) => {
       if (snap.exists()) {
         const savedLink = (snap.data().link || "").trim();
-        if (savedLink) {
-          setScheduleLink(savedLink);
-          localStorage.setItem(storageKey, savedLink);
-        }
-      } else if (!testMode && !localStorage.getItem(storageKey)) {
-        const legacy = await getDoc(doc(db, "configuracoes", "programacao"));
-        const savedLink = legacy.exists() ? (legacy.data().link || "").trim() : "";
         if (savedLink) {
           setScheduleLink(savedLink);
           localStorage.setItem(storageKey, savedLink);
@@ -1355,7 +1352,7 @@ function Dashboard({ testMode = false }) {
         doc(
           db,
           "configuracoes",
-          testMode ? `programacao_teste_${deviceId}` : `programacao_painel_${deviceId}`,
+          testMode ? `programacao_teste_${deviceId}` : "programacao",
         ),
         testMode
           ? {
@@ -1364,12 +1361,7 @@ function Dashboard({ testMode = false }) {
               deviceId,
               updatedAt: serverTimestamp(),
             }
-          : {
-              link: savedLink,
-              type: "programacao_painel",
-              deviceId,
-              updatedAt: serverTimestamp(),
-            },
+          : { link: savedLink, updatedAt: serverTimestamp() },
         { merge: true },
       );
       setScheduleLink(savedLink);
