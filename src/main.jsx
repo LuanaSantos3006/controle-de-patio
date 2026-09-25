@@ -89,6 +89,13 @@ const docks = [
   { id: "66", bases: ["ACM"] },
   { id: "67", bases: ["AET", "BCC"] },
 ];
+const testDocks = [
+  ...docks,
+  ...Array.from({ length: 23 }, (_, index) => ({
+    id: String(68 + index),
+    bases: [],
+  })),
+];
 
 const driverDockOptions = [
   ...docks.filter((dock) => !dock.blocked).map((dock) => dock.id),
@@ -505,15 +512,17 @@ const findProgrammedVehicle = async (link, plate) => {
   );
 };
 
-function DockMap({ liveDocks, expanded, onExpand, onClose }) {
-  const available = 17 - Object.keys(liveDocks).length;
+function DockMap({ liveDocks, dockList = docks, expanded, onExpand, onClose }) {
+  const available =
+    dockList.filter((dock) => !dock.blocked).length -
+    Object.keys(liveDocks).length;
   return (
     <section className={`panel dock-panel ${expanded ? "dock-modal" : ""}`}>
       <div className="panel-head">
         <div>
           <p className="eyebrow">GU - GUARULHOS • TEMPO REAL</p>
           <h2>Mapa operacional das docas</h2>
-          <p>18 posições físicas • clique para visualizar o mapa completo</p>
+          <p>{dockList.length} posições físicas • clique para visualizar o mapa completo</p>
         </div>
         <div className="dock-actions">
           <span className="dock-count">{available} disponíveis</span>
@@ -528,7 +537,7 @@ function DockMap({ liveDocks, expanded, onExpand, onClose }) {
         </div>
       </div>
       <div className="dock-grid">
-        {docks.map((d) => {
+        {dockList.map((d) => {
           const active = liveDocks[d.id];
           return (
             <article
@@ -597,6 +606,7 @@ function Dashboard({ testMode = false }) {
   const [testCarrier, setTestCarrier] = useState("");
   const [testCdc, setTestCdc] = useState("TODOS");
   const [soundEnabled, setSoundEnabled] = useState(false);
+  const [soundPromptOpen, setSoundPromptOpen] = useState(testMode);
   const [testPopup, setTestPopup] = useState(null);
   const [waveOpen, setWaveOpen] = useState(false);
   const [delayModalLevel, setDelayModalLevel] = useState(null);
@@ -876,8 +886,11 @@ function Dashboard({ testMode = false }) {
   const released = displayAllDrivers.filter(
     (d) => d.status === "Veículo liberado",
   ).length;
-  const availableDocks = docks.filter((d) => !d.blocked && !liveDocks[d.id]);
-  const dockCapacity = docks.filter((d) => !d.blocked).length;
+  const operationalDocks = testMode ? testDocks : docks;
+  const availableDocks = operationalDocks.filter(
+    (d) => !d.blocked && !liveDocks[d.id],
+  );
+  const dockCapacity = operationalDocks.filter((d) => !d.blocked).length;
   const occupiedDocks = dockCapacity - availableDocks.length;
   const dockOccupancy = dockCapacity
     ? Math.round((occupiedDocks / dockCapacity) * 100)
@@ -1030,6 +1043,7 @@ function Dashboard({ testMode = false }) {
     soundContextRef.current = context;
     await context.resume();
     setSoundEnabled(true);
+    setSoundPromptOpen(false);
   };
   useEffect(() => {
     if (!testMode) return;
@@ -1616,12 +1630,14 @@ function Dashboard({ testMode = false }) {
         <>
           <DockMap
             liveDocks={liveDocks}
+            dockList={operationalDocks}
             expanded={false}
             onExpand={() => setMapOpen(true)}
           />
           {mapOpen ? (
             <DockMap
               liveDocks={liveDocks}
+              dockList={operationalDocks}
               expanded
               onClose={() => setMapOpen(false)}
             />
@@ -1637,6 +1653,19 @@ function Dashboard({ testMode = false }) {
             <p>Veículo(s): <b>{testPopup.plates}</b></p>
             <button onClick={() => setTestPopup(null)}>Entendi</button>
           </div>
+        </div>
+      ) : null}
+      {testMode && soundPromptOpen ? (
+        <div className="sound-prompt-overlay" role="dialog" aria-modal="true" aria-labelledby="sound-prompt-title">
+          <section className="sound-prompt">
+            <div className="sound-prompt-icon" aria-hidden="true">🔊</div>
+            <p className="eyebrow">ALERTAS OPERACIONAIS</p>
+            <h2 id="sound-prompt-title">Ativar notificações sonoras?</h2>
+            <p>O painel emitirá sons diferentes quando houver veículo atrasado para chegar ao CDC ou motorista aguardando romaneio por mais de 10 minutos.</p>
+            <button className="sound-prompt-enable" onClick={enableSounds}>Ativar som</button>
+            <button className="sound-prompt-later" onClick={() => setSoundPromptOpen(false)}>Agora não</button>
+            <small>Você poderá ativar depois pelo botão no topo do painel.</small>
+          </section>
         </div>
       ) : null}
       {testMode && waveOpen ? (
