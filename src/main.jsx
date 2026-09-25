@@ -355,25 +355,58 @@ const parseCsv = (text) => {
   return rows;
 };
 const sheetCsvUrl = (link) => {
-  const id = link.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)?.[1];
-  if (!id) throw new Error("Cole um link válido do Google Planilhas.");
-  const gid =
-    new URL(link).searchParams.get("gid") ||
-    link.match(/gid=(\d+)/)?.[1] ||
-    "0";
-  return `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&gid=${gid}`;
+  const raw = (link || "").trim();
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error("Cole um link válido do Google Planilhas.");
+  }
+  const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
+  const gid = url.searchParams.get("gid") || hashParams.get("gid") || "0";
+  const range =
+    url.searchParams.get("range") || hashParams.get("range") || "";
+  const query = url.searchParams.get("tq") || "";
+  const publishedId = url.pathname.match(
+    /\/spreadsheets(?:\/u\/\d+)?\/d\/e\/([a-zA-Z0-9-_]+)/,
+  )?.[1];
+  if (publishedId) {
+    const params = new URLSearchParams({ output: "csv", gid });
+    if (range) params.set("range", range);
+    return `https://docs.google.com/spreadsheets/d/e/${publishedId}/pub?${params}`;
+  }
+  const id =
+    url.pathname.match(
+      /\/spreadsheets(?:\/u\/\d+)?\/d\/([a-zA-Z0-9-_]+)/,
+    )?.[1] ||
+    url.pathname.match(/\/file\/d\/([a-zA-Z0-9-_]+)/)?.[1] ||
+    url.searchParams.get("id");
+  if (!id)
+    throw new Error(
+      "Use um link compartilhado do Google Planilhas ou do arquivo aberto no Google Sheets.",
+    );
+  const params = new URLSearchParams({ tqx: "out:csv", gid });
+  if (range) params.set("range", range);
+  if (query) params.set("tq", query);
+  return `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?${params}`;
 };
 const programDateKey = (dateValue) => {
-  const parts = (dateValue || "")
-    .trim()
-    .match(/(\d{1,2})[\/-](\d{1,2})(?:[\/-](\d{2,4}))?/);
+  const value = (dateValue || "").trim();
+  const iso = value.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+  if (iso)
+    return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3])).getTime();
+  const parts = value.match(/(\d{1,2})[\/-](\d{1,2})(?:[\/-](\d{2,4}))?/);
   if (!parts) return null;
+  const first = Number(parts[1]);
+  const second = Number(parts[2]);
+  const day = first > 12 ? first : second > 12 ? second : first;
+  const month = first > 12 ? second : second > 12 ? first : second;
   const year = parts[3]
     ? Number(parts[3]) < 100
       ? 2000 + Number(parts[3])
       : Number(parts[3])
     : new Date().getFullYear();
-  return new Date(year, Number(parts[2]) - 1, Number(parts[1])).getTime();
+  return new Date(year, month - 1, day).getTime();
 };
 const scheduleDate = (dateValue, timeValue) => {
   const dateKey = programDateKey(dateValue);
