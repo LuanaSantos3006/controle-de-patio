@@ -594,7 +594,7 @@ function Dashboard({ testMode = false }) {
   const [manualReleasePlate, setManualReleasePlate] = useState("");
   const [manualReleaseError, setManualReleaseError] = useState("");
   const [now, setNow] = useState(Date.now());
-  const [testCarrier, setTestCarrier] = useState("TODAS");
+  const [testCarrier, setTestCarrier] = useState("");
   const [testCdc, setTestCdc] = useState("TODOS");
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [testPopup, setTestPopup] = useState(null);
@@ -761,16 +761,33 @@ function Dashboard({ testMode = false }) {
     () =>
       !testMode
         ? scheduleRows
+        : !testCarrier
+          ? []
         : scheduleRows.filter(
             (item) =>
-              (testCarrier === "TODAS" || item.carrier === testCarrier) &&
+              item.carrier === testCarrier &&
               (testCdc === "TODOS" || item.cdc === testCdc),
           ),
     [scheduleRows, testMode, testCarrier, testCdc],
   );
+  const visiblePlateSet = useMemo(
+    () => new Set(visibleScheduleRows.map((item) => item.plate)),
+    [visibleScheduleRows],
+  );
+  const displayAllDrivers = useMemo(
+    () =>
+      testMode
+        ? allDrivers.filter((driver) => visiblePlateSet.has(driver.plate))
+        : allDrivers,
+    [testMode, allDrivers, visiblePlateSet],
+  );
+  const displayActiveDrivers = useMemo(
+    () => displayAllDrivers.filter((driver) => driver.status !== "Veículo liberado"),
+    [displayAllDrivers],
+  );
   const filtered = useMemo(
     () => {
-      const rows = scheduleRows.length
+      const rows = scheduleRows.length || testMode
         ? visibleScheduleRows.map((item) => {
             const record = allDrivers.find(
               (driver) =>
@@ -799,12 +816,12 @@ function Dashboard({ testMode = false }) {
           operationalProgress(a.registered ? a : null).percent,
         );
     },
-    [query, visibleScheduleRows, allDrivers],
+    [query, visibleScheduleRows, allDrivers, scheduleRows.length, testMode],
   );
   const liveDocks = useMemo(
     () =>
       Object.fromEntries(
-        activeDrivers
+        displayActiveDrivers
           .filter(
             (d) =>
               (d.status === "Endocado" ||
@@ -814,14 +831,14 @@ function Dashboard({ testMode = false }) {
           )
           .map((d) => [d.dockId, d]),
       ),
-    [activeDrivers],
+    [displayActiveDrivers],
   );
-  const waiting = activeDrivers.filter((d) => d.status === "Aguardando").length;
-  const documentationWaiting = activeDrivers.filter(
+  const waiting = displayActiveDrivers.filter((d) => d.status === "Aguardando").length;
+  const documentationWaiting = displayActiveDrivers.filter(
     (d) => d.status === "Aguardando documentação",
   );
-  const docked = activeDrivers.filter((d) => d.status === "Endocado").length;
-  const released = allDrivers.filter(
+  const docked = displayActiveDrivers.filter((d) => d.status === "Endocado").length;
+  const released = displayAllDrivers.filter(
     (d) => d.status === "Veículo liberado",
   ).length;
   const availableDocks = docks.filter((d) => !d.blocked && !liveDocks[d.id]);
@@ -836,7 +853,7 @@ function Dashboard({ testMode = false }) {
         ? []
         : visibleScheduleRows
             .map((item) => {
-              const record = allDrivers.find((d) => d.plate === item.plate);
+              const record = displayAllDrivers.find((d) => d.plate === item.plate);
               if (
                 record?.status === "Endocado" ||
                 record?.status === "Aguardando documentação" ||
@@ -844,7 +861,7 @@ function Dashboard({ testMode = false }) {
                 record?.status === "Veículo liberado"
               )
                 return null;
-              const driver = activeDrivers.find((d) => d.plate === item.plate);
+              const driver = displayActiveDrivers.find((d) => d.plate === item.plate);
               const departure = scheduleDate(item.date, item.time);
               if (!departure) return null;
               const minutes = Math.ceil((departure.getTime() - now) / 60000);
@@ -856,8 +873,8 @@ function Dashboard({ testMode = false }) {
       visibleScheduleRows,
       scheduleReferenceDate,
       closedProgramDate,
-      allDrivers,
-      activeDrivers,
+      displayAllDrivers,
+      displayActiveDrivers,
       now,
     ],
   );
@@ -873,7 +890,7 @@ function Dashboard({ testMode = false }) {
   const arrivalSla = useMemo(() => {
     const total = visibleScheduleRows.length;
     const arrived = visibleScheduleRows.filter((item) =>
-      allDrivers.some(
+      displayAllDrivers.some(
         (driver) =>
           driver.plate === item.plate &&
           driver.arrivalAt,
@@ -881,12 +898,12 @@ function Dashboard({ testMode = false }) {
     ).length;
     const percent = total ? Math.round((arrived / total) * 100) : 0;
     return { total, arrived, percent, missing: Math.max(0, 100 - percent) };
-  }, [visibleScheduleRows, allDrivers]);
+  }, [visibleScheduleRows, displayAllDrivers]);
   const arrivalCriticalRows = useMemo(
     () =>
       visibleScheduleRows
         .map((item) => {
-          const arrived = allDrivers.some(
+          const arrived = displayAllDrivers.some(
             (driver) => driver.plate === item.plate && driver.arrivalAt,
           );
           const planned = scheduleDate(item.date, item.time);
@@ -897,7 +914,7 @@ function Dashboard({ testMode = false }) {
         })
         .filter(Boolean)
         .sort((a, b) => b.lateMinutes - a.lateMinutes),
-    [visibleScheduleRows, allDrivers, now],
+    [visibleScheduleRows, displayAllDrivers, now],
   );
   const delayTotals = useMemo(
     () => ({
@@ -920,7 +937,7 @@ function Dashboard({ testMode = false }) {
         arrived: 0,
       };
       current.planned += 1;
-      if (allDrivers.some((driver) => driver.plate === item.plate && driver.arrivalAt))
+      if (displayAllDrivers.some((driver) => driver.plate === item.plate && driver.arrivalAt))
         current.arrived += 1;
       buckets.set(operationalHour, current);
     });
@@ -943,7 +960,7 @@ function Dashboard({ testMode = false }) {
       first: values.length ? `${String(values[0].hour).padStart(2, "0")}h` : "—",
       last: values.length ? `${String(values.at(-1).hour).padStart(2, "0")}h` : "—",
     };
-  }, [visibleScheduleRows, allDrivers]);
+  }, [visibleScheduleRows, displayAllDrivers]);
   const playAlert = (kind) => {
     if (!soundEnabled || !soundContextRef.current) return;
     const context = soundContextRef.current;
@@ -973,7 +990,7 @@ function Dashboard({ testMode = false }) {
   };
   useEffect(() => {
     if (!testMode) return;
-    const overdueRomaneio = activeDrivers.filter((driver) => {
+    const overdueRomaneio = displayActiveDrivers.filter((driver) => {
       if (driver.status !== "Aguardando documentação") return false;
       const startedAt = timestampMillis(driver.cargoFinishedAt);
       return startedAt && now - startedAt > 10 * 60000;
@@ -1002,7 +1019,7 @@ function Dashboard({ testMode = false }) {
       return true;
     }) : [];
     if (newArrivalDelays.length) playAlert("chegada");
-  }, [testMode, soundEnabled, activeDrivers, arrivalCriticalRows, now]);
+  }, [testMode, soundEnabled, displayActiveDrivers, arrivalCriticalRows, now]);
   const saveScheduleLink = async () => {
     setScheduleError("");
     try {
@@ -1029,6 +1046,10 @@ function Dashboard({ testMode = false }) {
         { merge: true },
       );
       setScheduleLink(savedLink);
+      if (testMode) {
+        setTestCarrier("");
+        setTestCdc("TODOS");
+      }
     } catch (error) {
       setScheduleError(error.message || "Não foi possível salvar o link.");
     }
@@ -1174,7 +1195,7 @@ function Dashboard({ testMode = false }) {
             <Stat
               icon={Truck}
               label="No pátio agora"
-              value={activeDrivers.length}
+              value={displayActiveDrivers.length}
               detail="Capacidade monitorada em tempo real"
               tone="blue"
             />
@@ -1300,13 +1321,13 @@ function Dashboard({ testMode = false }) {
                 {testMode ? (
                   <details className="test-filters">
                     <summary>
-                      Filtros{testCarrier !== "TODAS" ? ` • ${testCarrier}` : ""}{testCdc !== "TODOS" ? ` • ${testCdc}` : ""}
+                      {testCarrier ? `Transportadora • ${testCarrier}` : "Selecionar transportadora"}{testCdc !== "TODOS" ? ` • ${testCdc}` : ""}
                     </summary>
                     <div className="test-filter-fields">
                       <label>
                         Transportadora
                         <select value={testCarrier} onChange={(event) => setTestCarrier(event.target.value)}>
-                          <option value="TODAS">Todas</option>
+                          <option value="">Selecione...</option>
                           {carrierOptions.map((carrier) => <option key={carrier} value={carrier}>{carrier}</option>)}
                         </select>
                       </label>
@@ -1433,7 +1454,9 @@ function Dashboard({ testMode = false }) {
                   ) : (
                     <tr>
                       <td colSpan="8" className="empty-row">
-                        Nenhum veículo na programação vigente
+                        {testMode && !testCarrier
+                          ? "Selecione uma transportadora no filtro para exibir o acompanhamento"
+                          : "Nenhum veículo na programação vigente"}
                       </td>
                     </tr>
                   )}
@@ -1448,7 +1471,7 @@ function Dashboard({ testMode = false }) {
                 <p>Docas disponíveis e movimentação no CDC</p>
               </div>
             </div>
-            <div className="occupancy-chart" role="img" aria-label={`${occupiedDocks} de ${dockCapacity} docas ocupadas; ${availableDocks.length} livres. ${activeDrivers.length} veículos no CDC.`}>
+            <div className="occupancy-chart" role="img" aria-label={`${occupiedDocks} de ${dockCapacity} docas ocupadas; ${availableDocks.length} livres. ${displayActiveDrivers.length} veículos no CDC.`}>
               <div className="occupancy-chart-total">
                 <strong>{dockOccupancy}%</strong>
                 <span>das docas ocupadas</span>
@@ -1462,13 +1485,13 @@ function Dashboard({ testMode = false }) {
                 <div className="occupancy-chart-track available"><span style={{ width: `${100 - dockOccupancy}%` }} /></div>
               </div>
               <div className="occupancy-chart-stats">
-                <div><b>{activeDrivers.length}</b><span>no CDC</span></div>
+                <div><b>{displayActiveDrivers.length}</b><span>no CDC</span></div>
                 <div><b>{waiting}</b><span>aguardando</span></div>
                 <div><b>{documentationWaiting.length}</b><span>aguardando romaneio</span></div>
                 <div><b>{released}</b><span>liberados hoje</span></div>
               </div>
             </div>
-            {testMode ? (
+            {testMode && testCarrier ? (
               <section className="test-side-dashboard" aria-label="Indicadores de chegada">
                 <div className="test-side-title">
                   <div>
@@ -1522,6 +1545,12 @@ function Dashboard({ testMode = false }) {
                   </div>
                 ) : null}
               </section>
+            ) : testMode ? (
+              <div className="test-dashboard-collapsed">
+                <span>PAINEL RECOLHIDO</span>
+                <b>Selecione uma transportadora</b>
+                <small>Os indicadores, níveis de atraso e gráfico serão exibidos após a seleção.</small>
+              </div>
             ) : null}
             <div className="alert">
               <AlertTriangle size={18} />
