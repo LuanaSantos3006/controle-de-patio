@@ -1024,6 +1024,48 @@ function Dashboard({ testMode = false }) {
       last: "06h",
     };
   }, [visibleScheduleRows, displayAllDrivers]);
+  const arrivalManagement = useMemo(() => {
+    const rows = visibleScheduleRows
+      .map((item) => {
+        const driver = displayAllDrivers.find((record) => record.plate === item.plate);
+        const planned = scheduleDate(item.date, item.time);
+        const actualMillis = timestampMillis(driver?.arrivalAt);
+        const variance = planned
+          ? Math.floor(((actualMillis || now) - planned.getTime()) / 60000)
+          : 0;
+        const arrived = Boolean(actualMillis);
+        const delayed = arrived ? variance > 0 : variance > 0;
+        return {
+          ...item,
+          driver,
+          arrived,
+          actualMillis,
+          variance,
+          delayed,
+          status: arrived
+            ? variance > 0
+              ? `Chegou com ${variance} min de atraso`
+              : "Chegou dentro do horário"
+            : variance > 0
+              ? `Pendente há ${variance} min`
+              : "Aguardando horário programado",
+        };
+      })
+      .sort((a, b) => Number(b.delayed) - Number(a.delayed) || b.variance - a.variance);
+    const arrived = rows.filter((item) => item.arrived).length;
+    const onTime = rows.filter((item) => item.arrived && item.variance <= 0).length;
+    const lateArrivals = rows.filter((item) => item.arrived && item.variance > 0).length;
+    const overdue = rows.filter((item) => !item.arrived && item.variance > 0).length;
+    return { rows, arrived, onTime, lateArrivals, overdue };
+  }, [visibleScheduleRows, displayAllDrivers, now]);
+  const formatArrivalHour = (value) =>
+    value
+      ? new Date(value).toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: "America/Sao_Paulo",
+        })
+      : "—";
   const playAlert = (kind) => {
     if (!soundEnabled || !soundContextRef.current) return;
     const context = soundContextRef.current;
@@ -1684,6 +1726,17 @@ function Dashboard({ testMode = false }) {
             <p className="eyebrow">JANELA OPERACIONAL COMPLETA</p>
             <h2 id="wave-modal-title">Movimento de chegadas • 22h às 6h</h2>
             <p className="wave-modal-description">Comparativo por hora entre os veículos programados e os registros de chegada ao CDC.</p>
+            <div className="wave-management-scope">
+              <span>TRANSPORTADORA <b>{testCarrier}</b></span>
+              <span>CDC <b>{testCdc === "TODOS" ? "Todos da programação" : testCdc}</b></span>
+              <span>DATA <b>{scheduleReferenceDate || "—"}</b></span>
+            </div>
+            <div className="wave-management-kpis">
+              <article><span>PROGRAMADOS</span><strong>{visibleScheduleRows.length}</strong><small>veículos no turno</small></article>
+              <article className="success"><span>CHEGARAM</span><strong>{arrivalManagement.arrived}</strong><small>{arrivalSla.percent}% da programação</small></article>
+              <article className="warning"><span>PENDENTES</span><strong>{visibleScheduleRows.length - arrivalManagement.arrived}</strong><small>{arrivalManagement.overdue} já atrasados</small></article>
+              <article className="info"><span>DENTRO DO HORÁRIO</span><strong>{arrivalManagement.onTime}</strong><small>{arrivalManagement.lateArrivals} chegaram atrasados</small></article>
+            </div>
             <div className="wave-modal-legend"><span><i className="planned" /> Programados</span><span><i className="arrived" /> Chegaram</span></div>
             <div className="wave-modal-chart">
               <svg viewBox="0 0 720 230" preserveAspectRatio="none">
@@ -1706,8 +1759,31 @@ function Dashboard({ testMode = false }) {
             </div>
             <div className="wave-hour-summary">
               {arrivalWave.values.map((item) => (
-                <div key={item.hour}><b>{String(item.hour).padStart(2, "0")}h</b><span>{item.arrived}/{item.planned}</span><small>chegaram</small></div>
+                <div key={item.hour}>
+                  <b>{String(item.hour).padStart(2, "0")}h</b>
+                  <span>{item.arrived}/{item.planned}</span>
+                  <small>{item.planned ? Math.round((item.arrived / item.planned) * 100) : 0}% chegaram</small>
+                </div>
               ))}
+            </div>
+            <div className="wave-vehicle-detail">
+              <div className="wave-detail-heading">
+                <div><p className="eyebrow">DETALHAMENTO GERENCIAL</p><h3>Veículos da programação</h3></div>
+                <span>{arrivalManagement.rows.length} registros</span>
+              </div>
+              <div className="wave-vehicle-list">
+                {arrivalManagement.rows.map((item) => (
+                  <article key={`${item.date}-${item.plate}`} className={item.delayed ? "delayed" : item.arrived ? "arrived" : "waiting"}>
+                    <div className="wave-vehicle-plate"><span>PLACA</span><b>{item.plate}</b></div>
+                    <div><span>TRANSPORTADORA</span><b>{item.carrier || testCarrier || "—"}</b></div>
+                    <div><span>ROTA</span><b>{item.route || "Não informada"}</b></div>
+                    <div><span>PROGRAMADO</span><b>{item.time}</b></div>
+                    <div><span>CHEGADA REAL</span><b>{formatArrivalHour(item.actualMillis)}</b></div>
+                    <div className="wave-vehicle-status"><span>STATUS</span><b>{item.status}</b></div>
+                    <div className="wave-vehicle-percent"><span>CONCLUSÃO</span><b>{item.arrived ? "100%" : "0%"}</b></div>
+                  </article>
+                ))}
+              </div>
             </div>
           </section>
         </div>
