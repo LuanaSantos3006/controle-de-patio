@@ -2709,6 +2709,8 @@ html, body, #root, .app, .app main { background: #10213e; }
   text-align: center;
 }
 .test-alert-popup > svg { color: #ffb13b; }
+.test-alert-popup.critical { border-color: #ff4258; background: linear-gradient(145deg, #5e1725, #251228); animation: criticalPopupPulse 1.2s ease-in-out infinite alternate; }
+.test-alert-popup.critical > svg { color: #ff6678; }
 .test-alert-popup h2 { margin: 7px 0 10px; color: #fff; font-size: 22px; }
 .test-alert-popup p:not(.eyebrow) { color: #d4e5f7; font-size: 13px; }
 .test-alert-popup button {
@@ -2778,6 +2780,24 @@ html, body, #root, .app, .app main { background: #10213e; }
 .arrival-sla-copy.compact b,
 .arrival-sla-copy.compact span { font-size: 10px; }
 .arrival-sla-copy.compact small { margin-left: auto; text-align: right; }
+.romaneio-alert-log { margin-top: 13px; padding: 10px; border: 1px solid #3b6288; border-radius: 10px; background: #071d39; }
+.romaneio-alert-log-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.romaneio-alert-log-head b { display: block; margin-top: 2px; color: #fff; font-size: 10px; }
+.romaneio-alert-log-head > span { display: grid; min-width: 25px; height: 25px; place-items: center; border-radius: 999px; background: #1a5480; color: #fff; font-size: 10px; font-weight: 900; }
+.romaneio-alert-items { display: grid; gap: 6px; max-height: 190px; margin-top: 9px; overflow-y: auto; }
+.romaneio-alert-items article { display: grid; grid-template-columns: .8fr 1.25fr .55fr; align-items: center; gap: 7px; padding: 8px; border: 1px solid #815f24; border-left: 4px solid #f0a723; border-radius: 8px; background: #49351e; }
+.romaneio-alert-items article.critical { border-color: #a43a4b; border-left-color: #ff4058; background: #561b2a; }
+.romaneio-alert-items strong,
+.romaneio-alert-items b,
+.romaneio-alert-items span { display: block; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.romaneio-alert-items strong { color: #fff; font-size: 11px; }
+.romaneio-alert-items b { color: #ffd98a; font-size: 8px; }
+.romaneio-alert-items article.critical b { color: #ffb1bb; }
+.romaneio-alert-items span { margin-top: 2px; color: #d8c6a6; font-size: 7px; }
+.romaneio-alert-time { text-align: right; }
+.romaneio-alert-time strong { color: #ffca71; }
+.romaneio-alert-items article.critical .romaneio-alert-time strong { color: #ff8190; }
+.romaneio-alert-empty { display: block; margin-top: 9px; color: #8faac5; font-size: 8px; }
 .arrival-wave {
   display: block;
   width: 100%;
@@ -2861,11 +2881,13 @@ html, body, #root, .app, .app main { background: #10213e; }
 .wave-management-scope { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .wave-management-scope span { padding: 7px 10px; border: 1px solid #42678d; border-radius: 8px; background: #0b294b; color: #86a8c9; font-size: 8px; font-weight: 900; letter-spacing: .05em; }
 .wave-management-scope b { margin-left: 5px; color: #fff; font-size: 10px; }
-.wave-management-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; margin-top: 12px; }
+.wave-management-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 9px; margin-top: 12px; }
 .wave-management-kpis article { padding: 12px; border: 1px solid #3f6388; border-radius: 11px; background: #102f52; box-shadow: inset 0 1px 0 #ffffff10; }
 .wave-management-kpis article.success { border-color: #27886d; background: #113f3b; }
 .wave-management-kpis article.warning { border-color: #a76d26; background: #49351e; }
 .wave-management-kpis article.info { border-color: #397bb2; background: #123c63; }
+.wave-management-kpis article.professional { border-color: #4a79a9; background: #173a5e; }
+.wave-management-kpis article.danger { border-color: #a94150; background: #512230; }
 .wave-management-kpis span,
 .wave-management-kpis strong,
 .wave-management-kpis small { display: block; }
@@ -3081,6 +3103,10 @@ html, body, #root, .app, .app main { background: #10213e; }
 @keyframes levelBarSweep {
   from { transform: translateX(-130%); }
   to { transform: translateX(260%); }
+}
+@keyframes criticalPopupPulse {
+  from { box-shadow: 0 24px 70px #000a, 0 0 0 0 #ff405855; }
+  to { box-shadow: 0 24px 70px #000a, 0 0 0 12px #ff405800; }
 }
 @media (prefers-reduced-motion: reduce) {
   .arrival-wave polyline,
