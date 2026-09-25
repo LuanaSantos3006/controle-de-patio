@@ -2522,6 +2522,44 @@ html, body, #root, .app, .app main { background: #10213e; }
   background: #13513f;
   color: #caffe9;
 }
+.sound-prompt-overlay {
+  position: fixed;
+  z-index: 1250;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: #020817e8;
+  backdrop-filter: blur(6px);
+}
+.sound-prompt {
+  width: min(440px, 100%);
+  padding: 29px;
+  border: 1px solid #4f7fac;
+  border-radius: 20px;
+  background: linear-gradient(145deg, #173d68, #092342);
+  box-shadow: 0 30px 90px #000d;
+  color: #fff;
+  text-align: center;
+}
+.sound-prompt-icon {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 13px;
+  place-items: center;
+  border: 1px solid #69b9ff;
+  border-radius: 18px;
+  background: #0a75df;
+  font-size: 28px;
+  box-shadow: 0 10px 25px #0076e75c;
+}
+.sound-prompt h2 { margin: 6px 0 10px; color: #fff; font: 800 24px/1.2 Manrope, sans-serif; }
+.sound-prompt > p:not(.eyebrow) { margin: 0 auto 20px; color: #c8dbee; font-size: 13px; line-height: 1.55; }
+.sound-prompt button { width: 100%; min-height: 46px; border-radius: 10px; font-weight: 800; cursor: pointer; }
+.sound-prompt-enable { border: 1px solid #70c8ff; background: #0879ed; color: #fff; }
+.sound-prompt-later { margin-top: 8px; border: 1px solid #496b8e; background: #102f52; color: #cbdff2; }
+.sound-prompt small { display: block; margin-top: 12px; color: #8eaac5; font-size: 9px; }
 .test-operations-panel {
   display: grid;
   grid-template-columns: minmax(300px, 1.25fr) minmax(360px, 1fr);
