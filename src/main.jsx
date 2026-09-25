@@ -21,7 +21,6 @@ import {
   collection,
   doc,
   getDoc,
-  getDocs,
   onSnapshot,
   runTransaction,
   serverTimestamp,
@@ -318,6 +317,7 @@ const normalizeText = (value) =>
     .trim()
     .toLowerCase();
 const SCHEDULE_LINK_KEY = "controle-patio-programacao-link";
+const TEST_SCHEDULE_LINK_KEY = "controle-patio-programacao-link-teste";
 const PANEL_DEVICE_KEY = "controle-patio-painel-dispositivo";
 const DRIVER_SESSION_KEY = "controle-patio-motorista-atual";
 
@@ -503,40 +503,6 @@ const findProgrammedVehicle = async (link, plate) => {
   );
 };
 
-const activeScheduleLinks = async () => {
-  const snapshot = await getDocs(collection(db, "configuracoes"));
-  return [
-    ...new Set(
-      snapshot.docs
-        .filter(
-          (item) =>
-            item.id === "programacao" ||
-            item.id.startsWith("programacao_") ||
-            item.data().type === "programacao_dispositivo",
-        )
-        .map((item) => item.data().link?.trim())
-        .filter(Boolean),
-    ),
-  ];
-};
-
-const findProgrammedVehicleAcrossPanels = async (plate) => {
-  const links = await activeScheduleLinks();
-  if (!links.length)
-    throw new Error("Nenhuma programação foi vinculada pelos painéis.");
-  const results = await Promise.allSettled(
-    links.map((link) => findProgrammedVehicle(link, plate)),
-  );
-  const vehicles = results
-    .filter((result) => result.status === "fulfilled" && result.value)
-    .map((result) => result.value)
-    .sort((a, b) => programDateKey(b.date) - programDateKey(a.date));
-  if (vehicles.length) return vehicles[0];
-  if (results.every((result) => result.status === "rejected"))
-    throw results[0].reason;
-  return null;
-};
-
 function DockMap({ liveDocks, expanded, onExpand, onClose }) {
   const available = 17 - Object.keys(liveDocks).length;
   return (
@@ -599,7 +565,7 @@ function DockMap({ liveDocks, expanded, onExpand, onClose }) {
   );
 }
 
-function Dashboard() {
+function Dashboard({ testMode = false }) {
   const activeNav = "Visão geral";
   const [deviceId] = useState(panelDeviceId);
   const [query, setQuery] = useState("");
@@ -614,7 +580,9 @@ function Dashboard() {
   const [scheduleLink, setScheduleLink] = useState(() =>
     typeof window === "undefined"
       ? ""
-      : localStorage.getItem(SCHEDULE_LINK_KEY) || "",
+      : localStorage.getItem(
+          testMode ? TEST_SCHEDULE_LINK_KEY : SCHEDULE_LINK_KEY,
+        ) || "",
   );
   const [scheduleRows, setScheduleRows] = useState([]);
   const [scheduleReferenceDate, setScheduleReferenceDate] = useState("");
@@ -636,6 +604,17 @@ function Dashboard() {
       ),
     );
   }, []);
+  useEffect(() => {
+    if (!firebaseReady || !db) return;
+    if (testMode) return;
+    return onSnapshot(doc(db, "configuracoes", "programacao"), (snap) => {
+      if (snap.exists()) {
+        const savedLink = snap.data().link || "";
+        setScheduleLink(savedLink);
+        localStorage.setItem(SCHEDULE_LINK_KEY, savedLink);
+      }
+    });
+  }, [testMode]);
   useEffect(() => {
     if (!firebaseReady || !db) return;
     return onSnapshot(doc(db, "configuracoes", "operacao"), (snap) => {
@@ -855,15 +834,24 @@ function Dashboard() {
     try {
       const savedLink = scheduleLink.trim();
       sheetCsvUrl(savedLink);
-      localStorage.setItem(SCHEDULE_LINK_KEY, savedLink);
+      localStorage.setItem(
+        testMode ? TEST_SCHEDULE_LINK_KEY : SCHEDULE_LINK_KEY,
+        savedLink,
+      );
       await setDoc(
-        doc(db, "configuracoes", `programacao_${deviceId}`),
-        {
-          link: savedLink,
-          type: "programacao_dispositivo",
-          deviceId,
-          updatedAt: serverTimestamp(),
-        },
+        doc(
+          db,
+          "configuracoes",
+          testMode ? `programacao_teste_${deviceId}` : "programacao",
+        ),
+        testMode
+          ? {
+              link: savedLink,
+              type: "programacao_teste",
+              deviceId,
+              updatedAt: serverTimestamp(),
+            }
+          : { link: savedLink, updatedAt: serverTimestamp() },
         { merge: true },
       );
       setScheduleLink(savedLink);
@@ -978,14 +966,18 @@ function Dashboard() {
           <h1>{pageCopy[0]}</h1>
           <p className="sub">{pageCopy[1]}</p>
         </div>
-        <button
-          className="close-turn-button"
-          onClick={closeTurn}
-          disabled={closingTurn}
-        >
-          <LogOut size={17} />
-          {closingTurn ? "Encerrando..." : "Encerrar turno"}
-        </button>
+        {testMode ? (
+          <span className="test-mode-badge">AMBIENTE DE TESTE</span>
+        ) : (
+          <button
+            className="close-turn-button"
+            onClick={closeTurn}
+            disabled={closingTurn}
+          >
+            <LogOut size={17} />
+            {closingTurn ? "Encerrando..." : "Encerrar turno"}
+          </button>
+        )}
       </header>
       {turnMessage ? (
         <p
@@ -1212,7 +1204,7 @@ function Dashboard() {
                             </div>
                           </td>
                           <td>
-                            {["Endocado", "Aguardando documentação", "Aguardando liberação de saída"].includes(d.status) ? (
+                            {!testMode && ["Endocado", "Aguardando documentação", "Aguardando liberação de saída"].includes(d.status) ? (
                               <button
                                 className="manual-release-button"
                                 disabled={manualReleasePlate === d.plate}
@@ -1223,7 +1215,9 @@ function Dashboard() {
                                   : "Liberar veículo"}
                               </button>
                             ) : (
-                              <span className="automatic-note">Automático</span>
+                              <span className="automatic-note">
+                                {testMode ? "Somente visualização" : "Automático"}
+                              </span>
                             )}
                           </td>
                         </tr>
@@ -1337,7 +1331,11 @@ function DriverPortal() {
     setLoading(true);
     try {
       const normalized = plate.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-      const vehicle = await findProgrammedVehicleAcrossPanels(normalized);
+      const snap = await getDoc(doc(db, "configuracoes", "programacao"));
+      const link = snap.exists()
+        ? snap.data().link || ""
+        : localStorage.getItem(SCHEDULE_LINK_KEY) || "";
+      const vehicle = await findProgrammedVehicle(link, normalized);
       if (!vehicle)
         throw new Error("Placa não encontrada na programação vigente.");
       setPlate(normalized);
@@ -1656,7 +1654,13 @@ function Scan() {
     setError("");
     try {
       const normalized = plate.toUpperCase();
-      const programmed = await findProgrammedVehicleAcrossPanels(normalized);
+      const scheduleSnap = await getDoc(
+        doc(db, "configuracoes", "programacao"),
+      );
+      const scheduleLink = scheduleSnap.exists()
+        ? scheduleSnap.data().link || ""
+        : localStorage.getItem(SCHEDULE_LINK_KEY) || "";
+      const programmed = await findProgrammedVehicle(scheduleLink, normalized);
       if (!programmed)
         throw new Error(
           "Placa não encontrada na programação vigente. Confira a placa informada.",
@@ -2082,6 +2086,7 @@ function locationPathname() {
 }
 
 function App() {
+  const testMode = locationPathname().replace(/\/+$/, "") === "/teste";
   const [screen] = useState(() => {
     const params = new URLSearchParams(locationSearch());
     if (
@@ -2168,7 +2173,7 @@ function App() {
         <span className="app-header-company">iMile • Controle operacional</span>
       </header>
       <main>
-        <Dashboard />
+        <Dashboard testMode={testMode} />
       </main>
     </div>
   );
