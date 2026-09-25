@@ -1126,6 +1126,65 @@ function Dashboard({ testMode = false }) {
     const critical = rows.filter((item) => item.delayed && item.variance > 30).length;
     return { rows, arrived, onTime, lateArrivals, overdue, averageDelay, punctuality, critical };
   }, [visibleScheduleRows, displayAllDrivers, now]);
+  const managementBreakdown = useMemo(() => {
+    const total = Math.max(1, arrivalManagement.rows.length);
+    const pendingFuture = arrivalManagement.rows.filter(
+      (item) => !item.arrived && item.variance <= 0,
+    ).length;
+    const status = {
+      onTime: arrivalManagement.onTime,
+      late: arrivalManagement.lateArrivals,
+      overdue: arrivalManagement.overdue,
+      pendingFuture,
+    };
+    const statusPercent = Object.fromEntries(
+      Object.entries(status).map(([key, value]) => [key, Math.round((value / total) * 100)]),
+    );
+    const aggregate = (key) =>
+      [...visibleScheduleRows.reduce((map, item) => {
+        const label = item[key] || "Não informado";
+        const current = map.get(label) || { label, planned: 0, arrived: 0 };
+        current.planned += 1;
+        if (displayAllDrivers.some((driver) => driver.plate === item.plate && driver.arrivalAt))
+          current.arrived += 1;
+        map.set(label, current);
+        return map;
+      }, new Map()).values()]
+        .map((item) => ({
+          ...item,
+          percent: item.planned ? Math.round((item.arrived / item.planned) * 100) : 0,
+        }))
+        .sort((a, b) => b.planned - a.planned || b.percent - a.percent);
+    const routes = aggregate("route").slice(0, 6);
+    const carriers = aggregate("carrier").slice(0, 6);
+    const peakHour = [...arrivalWave.values].sort(
+      (a, b) => b.planned - a.planned || b.arrived - a.arrived,
+    )[0];
+    const statusStops = [
+      { color: "#4ee0ad", value: status.onTime },
+      { color: "#ffb12e", value: status.late },
+      { color: "#ff4f66", value: status.overdue },
+      { color: "#4da9ff", value: status.pendingFuture },
+    ];
+    let accumulated = 0;
+    const donutBackground = `conic-gradient(${statusStops
+      .map(({ color, value }) => {
+        const start = accumulated;
+        accumulated += (value / total) * 100;
+        return `${color} ${start}% ${accumulated}%`;
+      })
+      .join(", ")})`;
+    return {
+      status,
+      statusPercent,
+      routes,
+      carriers,
+      peakHour,
+      topRoute: routes[0]?.label || "—",
+      maxRouteVolume: Math.max(1, ...routes.map((item) => item.planned)),
+      donutBackground,
+    };
+  }, [arrivalManagement, visibleScheduleRows, displayAllDrivers, arrivalWave.values]);
   const formatArrivalHour = (value) =>
     value
       ? new Date(value).toLocaleTimeString("pt-BR", {
@@ -1922,25 +1981,76 @@ function Dashboard({ testMode = false }) {
               <article className="professional"><span>PONTUALIDADE</span><strong>{arrivalManagement.punctuality}%</strong><small>sobre os que chegaram</small></article>
               <article className="danger"><span>ATRASO MÉDIO</span><strong>{arrivalManagement.averageDelay} min</strong><small>{arrivalManagement.critical} críticos acima de 30 min</small></article>
             </div>
-            <div className="wave-modal-legend"><span><i className="planned" /> Programados</span><span><i className="arrived" /> Chegaram</span></div>
-            <div className="wave-modal-chart">
-              <svg viewBox="0 0 720 230" preserveAspectRatio="none">
-                {[45, 93, 142, 190].map((y) => <line key={y} x1="45" y1={y} x2="675" y2={y} />)}
-                <polyline className="wave-planned" points={arrivalWave.fullPlanned} />
-                <polyline className="wave-arrived" points={arrivalWave.fullArrived} />
-                {arrivalWave.values.map((item, index) => {
-                  const x = 45 + (index / (arrivalWave.values.length - 1)) * 630;
-                  const plannedY = 190 - (item.planned / arrivalWave.max) * 145;
-                  const arrivedY = 190 - (item.arrived / arrivalWave.max) * 145;
-                  return (
-                    <g key={item.hour}>
-                      <circle className="planned-point" cx={x} cy={plannedY} r="5" />
-                      <circle className="arrived-point" cx={x} cy={arrivedY} r="5" />
-                      <text x={x} y="216" textAnchor="middle">{String(item.hour).padStart(2, "0")}h</text>
-                    </g>
-                  );
-                })}
-              </svg>
+            <div className="wave-executive-highlights">
+              <span><b>Pico da programação</b>{managementBreakdown.peakHour ? `${String(managementBreakdown.peakHour.hour).padStart(2, "0")}h • ${managementBreakdown.peakHour.planned} veículos` : "Sem movimento"}</span>
+              <span><b>Rota com maior volume</b>{managementBreakdown.topRoute}</span>
+              <span><b>Criticidade atual</b>{arrivalManagement.critical} veículos acima de 30 min</span>
+            </div>
+            <div className="executive-analysis-grid">
+              <section className="executive-card status-composition">
+                <div className="executive-card-heading"><div><p>COMPOSIÇÃO DO SLA</p><h3>Situação das chegadas</h3></div><span>{visibleScheduleRows.length} veículos</span></div>
+                <div className="status-composition-body">
+                  <div className="status-donut" style={{ background: managementBreakdown.donutBackground }}>
+                    <div><strong>{arrivalSla.percent}%</strong><small>já chegaram</small></div>
+                  </div>
+                  <div className="status-legend">
+                    <span className="on-time"><i />Dentro do horário <b>{managementBreakdown.status.onTime}</b><small>{managementBreakdown.statusPercent.onTime}%</small></span>
+                    <span className="late"><i />Chegaram atrasados <b>{managementBreakdown.status.late}</b><small>{managementBreakdown.statusPercent.late}%</small></span>
+                    <span className="overdue"><i />Atrasados pendentes <b>{managementBreakdown.status.overdue}</b><small>{managementBreakdown.statusPercent.overdue}%</small></span>
+                    <span className="future"><i />Aguardando horário <b>{managementBreakdown.status.pendingFuture}</b><small>{managementBreakdown.statusPercent.pendingFuture}%</small></span>
+                  </div>
+                </div>
+              </section>
+              <section className="executive-card hourly-evolution">
+                <div className="executive-card-heading"><div><p>EVOLUÇÃO HORÁRIA</p><h3>Programados x chegadas reais</h3></div></div>
+                <div className="wave-modal-legend"><span><i className="planned" /> Programados</span><span><i className="arrived" /> Chegaram</span></div>
+                <div className="wave-modal-chart">
+                  <svg viewBox="0 0 720 230" preserveAspectRatio="none">
+                    {[45, 93, 142, 190].map((y) => <line key={y} x1="45" y1={y} x2="675" y2={y} />)}
+                    <polyline className="wave-planned" points={arrivalWave.fullPlanned} />
+                    <polyline className="wave-arrived" points={arrivalWave.fullArrived} />
+                    {arrivalWave.values.map((item, index) => {
+                      const x = 45 + (index / (arrivalWave.values.length - 1)) * 630;
+                      const plannedY = 190 - (item.planned / arrivalWave.max) * 145;
+                      const arrivedY = 190 - (item.arrived / arrivalWave.max) * 145;
+                      return (
+                        <g key={item.hour}>
+                          <circle className="planned-point" cx={x} cy={plannedY} r="5" />
+                          <circle className="arrived-point" cx={x} cy={arrivedY} r="5" />
+                          <text x={x} y={plannedY - 10} textAnchor="middle">{item.planned}</text>
+                          <text className="arrived-label" x={x} y={arrivedY + 18} textAnchor="middle">{item.arrived}</text>
+                          <text x={x} y="216" textAnchor="middle">{String(item.hour).padStart(2, "0")}h</text>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                </div>
+              </section>
+              <section className="executive-card route-ranking">
+                <div className="executive-card-heading"><div><p>TOP ROTAS</p><h3>Volume e aderência por rota</h3></div><span>Top 6</span></div>
+                <div className="executive-ranking-list">
+                  {managementBreakdown.routes.map((item, index) => (
+                    <div className="executive-ranking-row" key={item.label}>
+                      <span className="ranking-position">{String(index + 1).padStart(2, "0")}</span>
+                      <b title={item.label}>{item.label}</b>
+                      <div className="ranking-track"><i style={{ width: `${(item.planned / managementBreakdown.maxRouteVolume) * 100}%` }} /></div>
+                      <strong>{item.arrived}/{item.planned}</strong><small>{item.percent}%</small>
+                    </div>
+                  ))}
+                </div>
+              </section>
+              <section className="executive-card carrier-performance">
+                <div className="executive-card-heading"><div><p>DESEMPENHO POR TRANSPORTADORA</p><h3>Chegadas confirmadas</h3></div><span>Top 6</span></div>
+                <div className="carrier-performance-list">
+                  {managementBreakdown.carriers.map((item) => (
+                    <article key={item.label}>
+                      <div><b title={item.label}>{item.label}</b><span>{item.arrived} de {item.planned} chegaram</span></div>
+                      <strong>{item.percent}%</strong>
+                      <div className="carrier-progress"><i style={{ width: `${item.percent}%` }} /></div>
+                    </article>
+                  ))}
+                </div>
+              </section>
             </div>
             <div className="wave-hour-summary">
               {arrivalWave.values.map((item) => (
