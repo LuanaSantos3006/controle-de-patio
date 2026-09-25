@@ -599,6 +599,7 @@ function Dashboard({ testMode = false }) {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [testPopup, setTestPopup] = useState(null);
   const soundContextRef = useRef(null);
+  const shownRomaneioPopupRef = useRef(new Set());
   const alertedRomaneioRef = useRef(new Set());
   const alertedArrivalRef = useRef(new Set());
   const pageCopy = [
@@ -934,29 +935,35 @@ function Dashboard({ testMode = false }) {
     setSoundEnabled(true);
   };
   useEffect(() => {
-    if (!testMode || !soundEnabled) return;
+    if (!testMode) return;
     const overdueRomaneio = activeDrivers.filter((driver) => {
       if (driver.status !== "Aguardando documentação") return false;
       const startedAt = timestampMillis(driver.cargoFinishedAt);
       return startedAt && now - startedAt > 10 * 60000;
     });
-    const newRomaneio = overdueRomaneio.filter(
-      (driver) => !alertedRomaneioRef.current.has(driver.plate),
+    const newPopupRomaneio = overdueRomaneio.filter(
+      (driver) => !shownRomaneioPopupRef.current.has(driver.plate),
     );
+    if (newPopupRomaneio.length) {
+      newPopupRomaneio.forEach((driver) => shownRomaneioPopupRef.current.add(driver.plate));
+      setTestPopup({
+        message: "Motorista aguardando romaneio a mais de 10min",
+        plates: newPopupRomaneio.map((driver) => driver.plate).join(", "),
+      });
+    }
+    const newRomaneio = soundEnabled ? overdueRomaneio.filter(
+      (driver) => !alertedRomaneioRef.current.has(driver.plate),
+    ) : [];
     if (newRomaneio.length) {
       newRomaneio.forEach((driver) => alertedRomaneioRef.current.add(driver.plate));
       playAlert("romaneio");
-      setTestPopup({
-        message: "Motorista aguardando romaneio há mais de 10 min",
-        plates: newRomaneio.map((driver) => driver.plate).join(", "),
-      });
     }
-    const newArrivalDelays = arrivalCriticalRows.filter((item) => {
+    const newArrivalDelays = soundEnabled ? arrivalCriticalRows.filter((item) => {
       const key = `${item.date}-${item.plate}`;
       if (alertedArrivalRef.current.has(key)) return false;
       alertedArrivalRef.current.add(key);
       return true;
-    });
+    }) : [];
     if (newArrivalDelays.length) playAlert("chegada");
   }, [testMode, soundEnabled, activeDrivers, arrivalCriticalRows, now]);
   const saveScheduleLink = async () => {
