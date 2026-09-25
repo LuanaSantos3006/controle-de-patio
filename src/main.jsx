@@ -21,6 +21,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   runTransaction,
   serverTimestamp,
@@ -317,7 +318,21 @@ const normalizeText = (value) =>
     .trim()
     .toLowerCase();
 const SCHEDULE_LINK_KEY = "controle-patio-programacao-link";
+const PANEL_DEVICE_KEY = "controle-patio-painel-dispositivo";
 const DRIVER_SESSION_KEY = "controle-patio-motorista-atual";
+
+const panelDeviceId = () => {
+  if (typeof window === "undefined") return "painel";
+  let id = localStorage.getItem(PANEL_DEVICE_KEY);
+  if (!id) {
+    id =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    localStorage.setItem(PANEL_DEVICE_KEY, id);
+  }
+  return id.replace(/[^a-zA-Z0-9-]/g, "");
+};
 
 const savedDriverSession = () => {
   if (typeof window === "undefined") return {};
@@ -488,6 +503,40 @@ const findProgrammedVehicle = async (link, plate) => {
   );
 };
 
+const activeScheduleLinks = async () => {
+  const snapshot = await getDocs(collection(db, "configuracoes"));
+  return [
+    ...new Set(
+      snapshot.docs
+        .filter(
+          (item) =>
+            item.id === "programacao" ||
+            item.id.startsWith("programacao_") ||
+            item.data().type === "programacao_dispositivo",
+        )
+        .map((item) => item.data().link?.trim())
+        .filter(Boolean),
+    ),
+  ];
+};
+
+const findProgrammedVehicleAcrossPanels = async (plate) => {
+  const links = await activeScheduleLinks();
+  if (!links.length)
+    throw new Error("Nenhuma programação foi vinculada pelos painéis.");
+  const results = await Promise.allSettled(
+    links.map((link) => findProgrammedVehicle(link, plate)),
+  );
+  const vehicles = results
+    .filter((result) => result.status === "fulfilled" && result.value)
+    .map((result) => result.value)
+    .sort((a, b) => programDateKey(b.date) - programDateKey(a.date));
+  if (vehicles.length) return vehicles[0];
+  if (results.every((result) => result.status === "rejected"))
+    throw results[0].reason;
+  return null;
+};
+
 function DockMap({ liveDocks, expanded, onExpand, onClose }) {
   const available = 17 - Object.keys(liveDocks).length;
   return (
@@ -552,6 +601,7 @@ function DockMap({ liveDocks, expanded, onExpand, onClose }) {
 
 function Dashboard() {
   const activeNav = "Visão geral";
+  const [deviceId] = useState(panelDeviceId);
   const [query, setQuery] = useState("");
   const [driverRecords, setDriverRecords] = useState(
     firebaseReady ? [] : initialDrivers,
@@ -585,16 +635,6 @@ function Dashboard() {
         snap.docs.map((item) => ({ id: item.id, ...item.data() })),
       ),
     );
-  }, []);
-  useEffect(() => {
-    if (!firebaseReady || !db) return;
-    return onSnapshot(doc(db, "configuracoes", "programacao"), (snap) => {
-      if (snap.exists()) {
-        const savedLink = snap.data().link || "";
-        setScheduleLink(savedLink);
-        localStorage.setItem(SCHEDULE_LINK_KEY, savedLink);
-      }
-    });
   }, []);
   useEffect(() => {
     if (!firebaseReady || !db) return;
@@ -817,8 +857,13 @@ function Dashboard() {
       sheetCsvUrl(savedLink);
       localStorage.setItem(SCHEDULE_LINK_KEY, savedLink);
       await setDoc(
-        doc(db, "configuracoes", "programacao"),
-        { link: savedLink, updatedAt: serverTimestamp() },
+        doc(db, "configuracoes", `programacao_${deviceId}`),
+        {
+          link: savedLink,
+          type: "programacao_dispositivo",
+          deviceId,
+          updatedAt: serverTimestamp(),
+        },
         { merge: true },
       );
       setScheduleLink(savedLink);
@@ -1292,11 +1337,7 @@ function DriverPortal() {
     setLoading(true);
     try {
       const normalized = plate.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-      const snap = await getDoc(doc(db, "configuracoes", "programacao"));
-      const link = snap.exists()
-        ? snap.data().link || ""
-        : localStorage.getItem(SCHEDULE_LINK_KEY) || "";
-      const vehicle = await findProgrammedVehicle(link, normalized);
+      const vehicle = await findProgrammedVehicleAcrossPanels(normalized);
       if (!vehicle)
         throw new Error("Placa não encontrada na programação vigente.");
       setPlate(normalized);
@@ -1615,13 +1656,7 @@ function Scan() {
     setError("");
     try {
       const normalized = plate.toUpperCase();
-      const scheduleSnap = await getDoc(
-        doc(db, "configuracoes", "programacao"),
-      );
-      const scheduleLink = scheduleSnap.exists()
-        ? scheduleSnap.data().link || ""
-        : localStorage.getItem(SCHEDULE_LINK_KEY) || "";
-      const programmed = await findProgrammedVehicle(scheduleLink, normalized);
+      const programmed = await findProgrammedVehicleAcrossPanels(normalized);
       if (!programmed)
         throw new Error(
           "Placa não encontrada na programação vigente. Confira a placa informada.",
