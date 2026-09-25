@@ -599,6 +599,7 @@ function Dashboard({ testMode = false }) {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [testPopup, setTestPopup] = useState(null);
   const [waveOpen, setWaveOpen] = useState(false);
+  const [delayModalLevel, setDelayModalLevel] = useState(null);
   const soundContextRef = useRef(null);
   const filterDetailsRef = useRef(null);
   const shownRomaneioPopupRef = useRef(new Set());
@@ -1568,23 +1569,30 @@ function Dashboard({ testMode = false }) {
                     const share = totalDelayed ? Math.round((delayTotals[level] / totalDelayed) * 100) : 0;
                     const ranges = { 1: "até 10 min", 2: "11 a 30 min", 3: "+30 min" };
                     return (
-                      <article key={level} className={`delay-level level-${level} ${delayTotals[level] ? "active" : ""}`}>
+                      <button
+                        type="button"
+                        key={level}
+                        className={`delay-level level-${level} ${delayTotals[level] ? "active" : ""}`}
+                        disabled={!delayTotals[level]}
+                        onClick={() => setDelayModalLevel(level)}
+                        aria-label={`Abrir veículos com atraso nível ${level}`}
+                      >
                         <div><span>NÍVEL {level}</span><strong>{delayTotals[level]}</strong></div>
                         <small>{ranges[level]}</small>
-                        <em>{delayTotals[level] ? `${share}% dos atrasos` : "Sem ocorrência"}</em>
+                        <em>{delayTotals[level] ? `${share}% dos atrasos • clique para ver` : "Sem ocorrência"}</em>
                         <i className="level-motion" style={{ width: `${Math.max(8, share)}%` }} />
-                      </article>
+                      </button>
                     );
                   })}
                 </div>
                 {arrivalCriticalRows.length ? (
-                  <div className="critical-time-alert compact-alert">
+                  <button type="button" className="critical-time-alert compact-alert" onClick={() => setDelayModalLevel("all")}>
                     <AlertTriangle size={17} />
                     <div>
                       <b>{arrivalCriticalRows.length} veículo(s) em criticidade</b>
-                      <span>Maior atraso: {arrivalCriticalRows[0].plate} • {arrivalCriticalRows[0].lateMinutes} min</span>
+                      <span>Maior atraso: {arrivalCriticalRows[0].plate} • {arrivalCriticalRows[0].lateMinutes} min • clique para visualizar</span>
                     </div>
-                  </div>
+                  </button>
                 ) : null}
               </section>
             ) : testMode ? (
@@ -1662,6 +1670,29 @@ function Dashboard({ testMode = false }) {
               {arrivalWave.values.map((item) => (
                 <div key={item.hour}><b>{String(item.hour).padStart(2, "0")}h</b><span>{item.arrived}/{item.planned}</span><small>chegaram</small></div>
               ))}
+            </div>
+          </section>
+        </div>
+      ) : null}
+      {testMode && delayModalLevel ? (
+        <div className="delay-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="delay-modal-title" onClick={(event) => event.target === event.currentTarget && setDelayModalLevel(null)}>
+          <section className="delay-modal">
+            <button className="delay-modal-close" onClick={() => setDelayModalLevel(null)} aria-label="Fechar lista"><X size={20} /></button>
+            <p className="eyebrow">CRITICIDADE DE CHEGADA</p>
+            <h2 id="delay-modal-title">{delayModalLevel === "all" ? "Todos os veículos atrasados" : `Veículos com atraso • Nível ${delayModalLevel}`}</h2>
+            <p className="delay-modal-description">Atrasos calculados pelo horário programado de chegada ao CDC.</p>
+            <div className="delay-vehicle-list">
+              {arrivalCriticalRows
+                .filter((item) => delayModalLevel === "all" || item.level === delayModalLevel)
+                .map((item) => (
+                  <article key={`${item.date}-${item.plate}`} className={`delay-vehicle-row level-${item.level}`}>
+                    <div className="delay-vehicle-plate"><span>PLACA</span><b>{item.plate}</b></div>
+                    <div><span>ROTA</span><b>{item.route || "Não informada"}</b></div>
+                    <div><span>TRANSPORTADORA</span><b>{item.carrier || "Não informada"}</b></div>
+                    <div><span>CHEGADA PROGRAMADA</span><b>{item.time}</b></div>
+                    <div className="delay-vehicle-minutes"><span>ATRASO</span><b>{item.lateMinutes} min</b><small>Nível {item.level}</small></div>
+                  </article>
+                ))}
             </div>
           </section>
         </div>
