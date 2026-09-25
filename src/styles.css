@@ -2832,7 +2832,7 @@ html, body, #root, .app, .app main { background: #10213e; }
 }
 .wave-modal {
   position: relative;
-  width: min(980px, 96vw);
+  width: min(1180px, 96vw);
   max-height: 92vh;
   padding: 28px;
   overflow-y: auto;
@@ -2858,6 +2858,20 @@ html, body, #root, .app, .app main { background: #10213e; }
 }
 .wave-modal h2 { margin: 4px 48px 6px 0; color: #fff; font: 800 24px/1.2 Manrope, sans-serif; }
 .wave-modal-description { margin: 0; color: #afc8e2; font-size: 12px; }
+.wave-management-scope { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.wave-management-scope span { padding: 7px 10px; border: 1px solid #42678d; border-radius: 8px; background: #0b294b; color: #86a8c9; font-size: 8px; font-weight: 900; letter-spacing: .05em; }
+.wave-management-scope b { margin-left: 5px; color: #fff; font-size: 10px; }
+.wave-management-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; margin-top: 12px; }
+.wave-management-kpis article { padding: 12px; border: 1px solid #3f6388; border-radius: 11px; background: #102f52; box-shadow: inset 0 1px 0 #ffffff10; }
+.wave-management-kpis article.success { border-color: #27886d; background: #113f3b; }
+.wave-management-kpis article.warning { border-color: #a76d26; background: #49351e; }
+.wave-management-kpis article.info { border-color: #397bb2; background: #123c63; }
+.wave-management-kpis span,
+.wave-management-kpis strong,
+.wave-management-kpis small { display: block; }
+.wave-management-kpis span { color: #9db8d4; font-size: 8px; font-weight: 900; letter-spacing: .05em; }
+.wave-management-kpis strong { margin: 5px 0 2px; color: #fff; font: 800 25px/1 Manrope, sans-serif; }
+.wave-management-kpis small { color: #bdd0e3; font-size: 8px; }
 .wave-modal-legend { display: flex; justify-content: flex-end; gap: 17px; margin: 18px 0 4px; color: #c8daed; font-size: 10px; }
 .wave-modal-legend span { display: flex; align-items: center; gap: 6px; }
 .wave-modal-legend i { width: 9px; height: 9px; border-radius: 50%; }
@@ -2885,12 +2899,46 @@ html, body, #root, .app, .app main { background: #10213e; }
 .wave-hour-summary b { color: #93cfff; font-size: 9px; }
 .wave-hour-summary span { margin: 3px 0; color: #fff; font: 800 16px/1 Manrope, sans-serif; }
 .wave-hour-summary small { color: #9fb8d2; font-size: 7px; }
+.wave-vehicle-detail { margin-top: 20px; padding-top: 17px; border-top: 1px solid #3f6388; }
+.wave-detail-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.wave-detail-heading h3 { margin: 2px 0 0; color: #fff; font: 800 16px/1.2 Manrope, sans-serif; }
+.wave-detail-heading > span { padding: 6px 9px; border-radius: 999px; background: #154c77; color: #cce8ff; font-size: 9px; font-weight: 800; }
+.wave-vehicle-list { display: grid; gap: 7px; max-height: 330px; overflow-y: auto; padding-right: 4px; }
+.wave-vehicle-list article {
+  display: grid;
+  grid-template-columns: .7fr 1fr 1.4fr .65fr .7fr 1.55fr .55fr;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #3b6087;
+  border-left: 4px solid #6e8eae;
+  border-radius: 9px;
+  background: #0c2949;
+}
+.wave-vehicle-list article.arrived { border-left-color: #49d6a5; }
+.wave-vehicle-list article.delayed { border-left-color: #ff5b68; background: #3a2533; }
+.wave-vehicle-list article > div { min-width: 0; }
+.wave-vehicle-list span,
+.wave-vehicle-list b { display: block; }
+.wave-vehicle-list span { margin-bottom: 3px; color: #86a6c5; font-size: 7px; font-weight: 900; letter-spacing: .05em; }
+.wave-vehicle-list b { overflow: hidden; color: #fff; font-size: 10px; white-space: nowrap; text-overflow: ellipsis; }
+.wave-vehicle-plate b { color: #75c8ff; font: 800 16px/1 Manrope, sans-serif; }
+.wave-vehicle-status b { color: #ffd08d; font-size: 9px; }
+.wave-vehicle-list article.arrived:not(.delayed) .wave-vehicle-status b { color: #71e2b8; }
+.wave-vehicle-percent { text-align: right; }
+.wave-vehicle-percent b { color: #6ee0b5; font-size: 14px; }
 @media (max-width: 700px) {
   .wave-modal-overlay { padding: 10px; }
   .wave-modal { width: 100%; padding: 20px 14px; }
   .wave-modal h2 { font-size: 19px; }
   .wave-modal-chart svg { width: 100%; height: 245px; }
   .wave-hour-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .wave-management-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wave-vehicle-list article { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .wave-vehicle-plate,
+  .wave-vehicle-status { grid-column: 1 / -1; }
+  .wave-vehicle-percent { text-align: left; }
 }
 .compact-levels {
   margin-top: 10px;
