@@ -512,7 +512,7 @@ const findProgrammedVehicle = async (link, plate) => {
   );
 };
 
-function DockMap({ liveDocks, dockList = docks, expanded, onExpand, onClose }) {
+function DockMap({ liveDocks, dockList = docks, expanded, collapsed = false, onToggle, onExpand, onClose }) {
   const available =
     dockList.filter((dock) => !dock.blocked).length -
     Object.keys(liveDocks).length;
@@ -526,6 +526,12 @@ function DockMap({ liveDocks, dockList = docks, expanded, onExpand, onClose }) {
         </div>
         <div className="dock-actions">
           <span className="dock-count">{available} disponíveis</span>
+          {!expanded && onToggle ? (
+            <button className="collapse-map" onClick={onToggle} aria-expanded={!collapsed}>
+              <ChevronRight className={collapsed ? "" : "open"} size={17} />
+              {collapsed ? "Mostrar docas" : "Recolher mapa"}
+            </button>
+          ) : null}
           <button
             className="expand-map"
             onClick={expanded ? onClose : onExpand}
@@ -536,7 +542,7 @@ function DockMap({ liveDocks, dockList = docks, expanded, onExpand, onClose }) {
           </button>
         </div>
       </div>
-      <div className="dock-grid">
+      {!collapsed || expanded ? <div className="dock-grid">
         {dockList.map((d) => {
           const active = liveDocks[d.id];
           return (
@@ -568,10 +574,10 @@ function DockMap({ liveDocks, dockList = docks, expanded, onExpand, onClose }) {
             </article>
           );
         })}
-      </div>
-      <div className="conveyor">
+      </div> : null}
+      {!collapsed || expanded ? <div className="conveyor">
         <span>Esteira / Conveyor</span>
-      </div>
+      </div> : null}
     </section>
   );
 }
@@ -588,6 +594,7 @@ function Dashboard({ testMode = false }) {
   const [closingTurn, setClosingTurn] = useState(false);
   const [turnMessage, setTurnMessage] = useState("");
   const [mapOpen, setMapOpen] = useState(false);
+  const [mapCollapsed, setMapCollapsed] = useState(testMode);
   const [scheduleLink, setScheduleLink] = useState(() =>
     typeof window === "undefined"
       ? ""
@@ -1632,6 +1639,8 @@ function Dashboard({ testMode = false }) {
             liveDocks={liveDocks}
             dockList={operationalDocks}
             expanded={false}
+            collapsed={testMode && mapCollapsed}
+            onToggle={testMode ? () => setMapCollapsed((current) => !current) : null}
             onExpand={() => setMapOpen(true)}
           />
           {mapOpen ? (
