@@ -3,6 +3,10 @@
     {
       "source": "/motorista",
       "destination": "/index.html"
+    },
+    {
+      "source": "/teste",
+      "destination": "/index.html"
     }
   ]
 }
