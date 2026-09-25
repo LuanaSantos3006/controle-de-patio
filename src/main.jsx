@@ -1985,7 +1985,7 @@ function Dashboard({ testMode = false }) {
             </div>
             <div className="wave-executive-highlights">
               <span><b>Pico da programação</b>{managementBreakdown.peakHour ? `${String(managementBreakdown.peakHour.hour).padStart(2, "0")}h • ${managementBreakdown.peakHour.planned} veículos` : "Sem movimento"}</span>
-              <span><b>Rota com maior volume</b>{managementBreakdown.topRoute}</span>
+              <span><b>Chegadas confirmadas</b>{arrivalManagement.arrived} de {visibleScheduleRows.length} veículos</span>
               <span><b>Criticidade atual</b>{arrivalManagement.critical} veículos acima de 30 min</span>
             </div>
             <div className="executive-analysis-grid">
@@ -2028,20 +2028,7 @@ function Dashboard({ testMode = false }) {
                   </svg>
                 </div>
               </section>
-              <section className="executive-card route-ranking">
-                <div className="executive-card-heading"><div><p>TOP ROTAS</p><h3>Volume e aderência por rota</h3></div><span>Top 6</span></div>
-                <div className="executive-ranking-list">
-                  {managementBreakdown.routes.map((item, index) => (
-                    <div className="executive-ranking-row" key={item.label}>
-                      <span className="ranking-position">{String(index + 1).padStart(2, "0")}</span>
-                      <b title={item.label}>{item.label}</b>
-                      <div className="ranking-track"><i style={{ width: `${(item.planned / managementBreakdown.maxRouteVolume) * 100}%` }} /></div>
-                      <strong>{item.arrived}/{item.planned}</strong><small>{item.percent}%</small>
-                    </div>
-                  ))}
-                </div>
-              </section>
-              <section className="executive-card carrier-performance">
+              <section className="executive-card carrier-performance executive-card-wide">
                 <div className="executive-card-heading"><div><p>DESEMPENHO POR TRANSPORTADORA</p><h3>Chegadas confirmadas</h3></div><span>Top 6</span></div>
                 <div className="carrier-performance-list">
                   {managementBreakdown.carriers.map((item) => (
@@ -2053,34 +2040,6 @@ function Dashboard({ testMode = false }) {
                   ))}
                 </div>
               </section>
-            </div>
-            <div className="wave-hour-summary">
-              {arrivalWave.values.map((item) => (
-                <div key={item.hour}>
-                  <b>{String(item.hour).padStart(2, "0")}h</b>
-                  <span>{item.arrived}/{item.planned}</span>
-                  <small>{item.planned ? Math.round((item.arrived / item.planned) * 100) : 0}% chegaram</small>
-                </div>
-              ))}
-            </div>
-            <div className="wave-vehicle-detail">
-              <div className="wave-detail-heading">
-                <div><p className="eyebrow">DETALHAMENTO GERENCIAL</p><h3>Veículos da programação</h3></div>
-                <span>{arrivalManagement.rows.length} registros</span>
-              </div>
-              <div className="wave-vehicle-list">
-                {arrivalManagement.rows.map((item) => (
-                  <article key={`${item.date}-${item.plate}`} className={item.delayed ? "delayed" : item.arrived ? "arrived" : "waiting"}>
-                    <div className="wave-vehicle-plate"><span>PLACA</span><b>{item.plate}</b></div>
-                    <div><span>TRANSPORTADORA</span><b>{item.carrier || (testCarrier === "TODAS" ? "Não informada" : testCarrier) || "—"}</b></div>
-                    <div><span>ROTA</span><b>{item.route || "Não informada"}</b></div>
-                    <div><span>PROGRAMADO</span><b>{item.time}</b></div>
-                    <div><span>CHEGADA REAL</span><b>{formatArrivalHour(item.actualMillis)}</b></div>
-                    <div className="wave-vehicle-status"><span>STATUS</span><b>{item.status}</b></div>
-                    <div className="wave-vehicle-percent"><span>CONCLUSÃO</span><b>{item.arrived ? "100%" : "0%"}</b></div>
-                  </article>
-                ))}
-              </div>
             </div>
           </section>
         </div>
