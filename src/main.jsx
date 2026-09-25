@@ -617,15 +617,20 @@ function Dashboard({ testMode = false }) {
   }, []);
   useEffect(() => {
     if (!firebaseReady || !db) return;
-    if (testMode) return;
-    return onSnapshot(doc(db, "configuracoes", "programacao"), (snap) => {
+    const configId = testMode
+      ? `programacao_teste_${deviceId}`
+      : "programacao";
+    const storageKey = testMode
+      ? TEST_SCHEDULE_LINK_KEY
+      : SCHEDULE_LINK_KEY;
+    return onSnapshot(doc(db, "configuracoes", configId), (snap) => {
       if (snap.exists()) {
         const savedLink = snap.data().link || "";
         setScheduleLink(savedLink);
-        localStorage.setItem(SCHEDULE_LINK_KEY, savedLink);
+        localStorage.setItem(storageKey, savedLink);
       }
     });
-  }, [testMode]);
+  }, [testMode, deviceId]);
   useEffect(() => {
     if (!firebaseReady || !db) return;
     return onSnapshot(doc(db, "configuracoes", "operacao"), (snap) => {
