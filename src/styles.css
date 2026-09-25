@@ -2685,3 +2685,141 @@ html, body, #root, .app, .app main { background: #10213e; }
   .test-filters summary { width: 100%; }
   .test-filter-fields { right: auto; left: 0; }
 }
+
+/* Dashboard compacto de SLA no canto direito do painel de teste. */
+.grid-main.test-grid-main { grid-template-columns: minmax(0, 1fr) 370px; }
+.test-side-dashboard {
+  margin: 0 12px 17px;
+  padding: 14px;
+  overflow: hidden;
+  border: 1px solid #42648a;
+  border-radius: 13px;
+  background: linear-gradient(145deg, #17395f, #0b2443);
+  box-shadow: inset 0 1px 0 #ffffff0d, 0 13px 28px #020b1c55;
+}
+.test-side-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.test-side-title h3 { margin: 2px 0 0; color: #fff; font: 800 14px/1.2 Manrope, sans-serif; }
+.test-side-title > strong { color: #67e1b1; font: 800 27px/1 Manrope, sans-serif; }
+.test-side-dashboard .arrival-sla-track { height: 9px; margin: 12px 0 8px; }
+.arrival-sla-copy.compact { gap: 7px; }
+.arrival-sla-copy.compact b,
+.arrival-sla-copy.compact span { font-size: 10px; }
+.arrival-sla-copy.compact small { margin-left: auto; text-align: right; }
+.arrival-wave {
+  margin-top: 13px;
+  padding: 10px 10px 7px;
+  border: 1px solid #365c84;
+  border-radius: 10px;
+  background: #071d39;
+}
+.arrival-wave-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.arrival-wave-head b { color: #fff; font-size: 10px; }
+.arrival-wave-head span { color: #9fbad7; font-size: 7px; white-space: nowrap; }
+.arrival-wave-head i { display: inline-block; width: 7px; height: 7px; margin: 0 3px 0 6px; border-radius: 50%; }
+.arrival-wave-head i.planned { background: #56aaff; }
+.arrival-wave-head i.arrived { background: #55e1ac; }
+.arrival-wave svg { display: block; width: 100%; height: 67px; margin-top: 4px; overflow: visible; }
+.arrival-wave svg line { stroke: #496987; stroke-width: 1; }
+.arrival-wave polyline {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 700;
+  animation: drawArrivalWave 2.8s ease-in-out infinite alternate;
+}
+.arrival-wave .wave-planned { stroke: #50a5ff; opacity: .75; }
+.arrival-wave .wave-arrived { stroke: #56e1ae; animation-delay: .25s; }
+.arrival-wave-axis { display: flex; justify-content: space-between; color: #7798ba; font-size: 7px; }
+.compact-levels {
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.compact-levels .delay-level {
+  position: relative;
+  min-height: 91px;
+  justify-content: flex-start;
+  padding: 9px;
+  overflow: hidden;
+  box-shadow: 0 7px 13px #02091466, inset 0 1px 0 #ffffff1f;
+  transform: translateY(0);
+}
+.compact-levels .delay-level.active { animation: levelCardMovement 2.5s ease-in-out infinite; }
+.compact-levels .delay-level:nth-child(2) { animation-delay: .25s; }
+.compact-levels .delay-level:nth-child(3) { animation-delay: .5s; }
+.compact-levels .delay-level > div { display: flex; align-items: center; justify-content: space-between; gap: 5px; }
+.compact-levels .delay-level span { font-size: 8px; }
+.compact-levels .delay-level strong { margin: 0; font-size: 20px; }
+.compact-levels .delay-level small { margin-top: 3px; font-size: 7px; }
+.compact-levels .delay-level em {
+  display: block;
+  margin-top: 8px;
+  color: #fffde0;
+  font-size: 7px;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.level-motion {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: block;
+  max-width: 100%;
+  height: 4px;
+  border-radius: 0 5px 0 0;
+  background: #fff9;
+  transition: width .4s ease;
+}
+.delay-level.active .level-motion::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 50%;
+  background: linear-gradient(90deg, transparent, #fff, transparent);
+  animation: levelBarSweep 1.7s linear infinite;
+}
+.compact-alert { grid-column: auto; margin-top: 10px; padding: 9px 10px; border-radius: 9px; }
+.compact-alert b { font-size: 10px; }
+.compact-alert span { font-size: 8px; }
+@keyframes drawArrivalWave {
+  from { stroke-dashoffset: 700; opacity: .45; }
+  to { stroke-dashoffset: 0; opacity: 1; }
+}
+@keyframes levelCardMovement {
+  0%, 100% { transform: translateY(0); filter: brightness(1); }
+  50% { transform: translateY(-3px); filter: brightness(1.12); }
+}
+@keyframes levelBarSweep {
+  from { transform: translateX(-130%); }
+  to { transform: translateX(260%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arrival-wave polyline,
+  .compact-levels .delay-level.active,
+  .delay-level.active .level-motion::after { animation: none; }
+}
+@media (max-width: 1100px) {
+  .grid-main.test-grid-main { display: block; }
+  .test-side-dashboard { margin-inline: 18px; }
+}
+@media (max-width: 600px) {
+  .test-side-dashboard { margin-inline: 10px; padding: 12px; }
+  .arrival-sla-copy.compact { flex-direction: row; flex-wrap: wrap; }
+  .arrival-sla-copy.compact small { width: 100%; margin-left: 0; text-align: left; }
+}
