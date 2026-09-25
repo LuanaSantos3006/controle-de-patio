@@ -599,6 +599,7 @@ function Dashboard({ testMode = false }) {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [testPopup, setTestPopup] = useState(null);
   const soundContextRef = useRef(null);
+  const filterDetailsRef = useRef(null);
   const shownRomaneioPopupRef = useRef(new Set());
   const alertedRomaneioRef = useRef(new Set());
   const alertedArrivalRef = useRef(new Set());
@@ -638,6 +639,25 @@ function Dashboard({ testMode = false }) {
     const timer = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(timer);
   }, []);
+  useEffect(() => {
+    if (!testMode) return;
+    const closeFilter = (event) => {
+      const details = filterDetailsRef.current;
+      if (!details?.open) return;
+      if (event.type === "keydown" && event.key === "Escape") {
+        details.open = false;
+        return;
+      }
+      if (event.type === "pointerdown" && !details.contains(event.target))
+        details.open = false;
+    };
+    document.addEventListener("pointerdown", closeFilter);
+    document.addEventListener("keydown", closeFilter);
+    return () => {
+      document.removeEventListener("pointerdown", closeFilter);
+      document.removeEventListener("keydown", closeFilter);
+    };
+  }, [testMode]);
   useEffect(() => {
     if (!scheduleLink) {
       setScheduleRows([]);
@@ -1319,7 +1339,7 @@ function Dashboard({ testMode = false }) {
               </div>
               <div className="accompaniment-actions">
                 {testMode ? (
-                  <details className="test-filters">
+                  <details className="test-filters" ref={filterDetailsRef}>
                     <summary>
                       {testCarrier ? `Transportadora • ${testCarrier}` : "Selecionar transportadora"}{testCdc !== "TODOS" ? ` • ${testCdc}` : ""}
                     </summary>
