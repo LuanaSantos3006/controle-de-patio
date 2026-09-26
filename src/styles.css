@@ -718,6 +718,17 @@ td span {
   align-items: center;
   gap: 9px;
 }
+.dock-selection-empty {
+  margin-top: 14px;
+  padding: 28px 18px;
+  border: 1px dashed #3e668e;
+  border-radius: 12px;
+  background: #0b2948;
+  color: #a9c4df;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
 .expand-map {
   border: 1px solid #d6e0ec;
   background: #fff;
@@ -2689,6 +2700,29 @@ html, body, #root, .app, .app main { background: #10213e; }
   background: #071e3b;
   color: #fff;
 }
+.carrier-multi-filter {
+  display: grid;
+  max-height: 210px;
+  margin: 0 0 11px;
+  padding: 9px;
+  overflow-y: auto;
+  border: 1px solid #55789f;
+  border-radius: 8px;
+  background: #071e3b;
+}
+.carrier-multi-filter legend { padding: 0 4px; color: #bcd3eb; font-size: 10px; font-weight: 800; }
+.carrier-multi-filter label,
+.test-filter-fields .carrier-multi-filter label + label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  margin: 0;
+  color: #fff;
+  font-size: 10px;
+  cursor: pointer;
+}
+.carrier-multi-filter input { width: 15px; height: 15px; margin: 0; accent-color: #29b6ff; }
 .test-alert-overlay {
   position: fixed;
   z-index: 1000;
@@ -2739,6 +2773,9 @@ html, body, #root, .app, .app main { background: #10213e; }
   .accompaniment-actions { align-items: stretch; flex-direction: column; }
   .test-filters summary { width: 100%; }
   .test-filter-fields { right: auto; left: 0; }
+}
+@media (max-width: 700px), (pointer: coarse) {
+  *, *::before, *::after { cursor: none !important; }
 }
 
 /* Dashboard compacto de SLA no canto direito do painel de teste. */
