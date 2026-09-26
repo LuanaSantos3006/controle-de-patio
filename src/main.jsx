@@ -89,18 +89,12 @@ const docks = [
   { id: "66", bases: ["ACM"] },
   { id: "67", bases: ["AET", "BCC"] },
 ];
-const testDocks = [
-  ...docks,
-  ...Array.from({ length: 23 }, (_, index) => ({
-    id: String(68 + index),
-    bases: [],
-  })),
-];
+const testDocks = Array.from({ length: 71 }, (_, index) => ({
+  id: String(20 + index),
+  bases: [],
+}));
 
-const driverDockOptions = [
-  ...docks.filter((dock) => !dock.blocked).map((dock) => dock.id),
-  ...Array.from({ length: 23 }, (_, index) => String(68 + index)),
-];
+const driverDockOptions = testDocks.map((dock) => dock.id);
 
 const driverStages = [
   {
@@ -516,13 +510,22 @@ const findProgrammedVehicle = async (link, plate) => {
     throw new Error(
       "Não foi possível localizar as colunas Placa e Data na planilha.",
     );
-  const { headerRow, plateIndex, routeIndex, dateIndex } = columns;
+  const {
+    headerRow,
+    plateIndex,
+    routeIndex,
+    dateIndex,
+    carrierIndex,
+    cdcIndex,
+  } = columns;
   const vehicles = csv
     .slice(headerRow + 1)
     .map((row) => ({
       plate: (row[plateIndex] || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase(),
       route: routeIndex >= 0 ? (row[routeIndex] || "").trim() : "",
       date: row[dateIndex] || "",
+      carrier: carrierIndex >= 0 ? (row[carrierIndex] || "").trim() : "",
+      cdc: cdcIndex >= 0 ? (row[cdcIndex] || "").trim() : "",
     }))
     .filter((item) => item.plate && programDateKey(item.date));
   if (!vehicles.length)
@@ -538,7 +541,7 @@ const findProgrammedVehicle = async (link, plate) => {
   );
 };
 
-function DockMap({ liveDocks, dockList = docks, expanded, collapsed = false, onToggle, onExpand, onClose }) {
+function DockMap({ liveDocks, dockList = docks, selectedCdc, expanded, collapsed = false, onToggle, onExpand, onClose }) {
   const available =
     dockList.filter((dock) => !dock.blocked).length -
     Object.keys(liveDocks).length;
@@ -546,7 +549,7 @@ function DockMap({ liveDocks, dockList = docks, expanded, collapsed = false, onT
     <section className={`panel dock-panel ${expanded ? "dock-modal" : ""}`}>
       <div className="panel-head">
         <div>
-          <p className="eyebrow">GU - GUARULHOS • TEMPO REAL</p>
+          <p className="eyebrow">{selectedCdc || "SELECIONE UM CDC"} • TEMPO REAL</p>
           <h2>Mapa operacional das docas</h2>
           <p>{dockList.length} posições físicas • clique para visualizar o mapa completo</p>
         </div>
@@ -568,7 +571,12 @@ function DockMap({ liveDocks, dockList = docks, expanded, collapsed = false, onT
           </button>
         </div>
       </div>
-      {!collapsed || expanded ? <div className="dock-grid">
+      {(!collapsed || expanded) && !selectedCdc ? (
+        <div className="dock-selection-empty">
+          Selecione um CDC no filtro para visualizar a ocupação das docas 20 a 90.
+        </div>
+      ) : null}
+      {(!collapsed || expanded) && selectedCdc ? <div className="dock-grid">
         {dockList.map((d) => {
           const active = liveDocks[d.id];
           return (
@@ -584,6 +592,7 @@ function DockMap({ liveDocks, dockList = docks, expanded, collapsed = false, onT
                 <div className="dock-live">
                   <b>{active.plate}</b>
                   <span>Rota {active.route || "não informada"}</span>
+                  {active.carrier ? <span>{active.carrier}</span> : null}
                   {active.status === "Aguardando documentação" ? (
                     <span>Aguardando romaneio</span>
                   ) : null}
@@ -601,7 +610,7 @@ function DockMap({ liveDocks, dockList = docks, expanded, collapsed = false, onT
           );
         })}
       </div> : null}
-      {!collapsed || expanded ? <div className="conveyor">
+      {(!collapsed || expanded) && selectedCdc ? <div className="conveyor">
         <span>Esteira / Conveyor</span>
       </div> : null}
     </section>
@@ -636,9 +645,16 @@ function Dashboard({ testMode = false }) {
   const [manualReleasePlate, setManualReleasePlate] = useState("");
   const [manualReleaseError, setManualReleaseError] = useState("");
   const [now, setNow] = useState(Date.now());
-  const [testCarrier, setTestCarrier] = useState(() =>
-    localStorage.getItem(testMode ? TEST_CARRIER_KEY : PANEL_CARRIER_KEY) || "",
-  );
+  const [testCarriers, setTestCarriers] = useState(() => {
+    const saved = localStorage.getItem(testMode ? TEST_CARRIER_KEY : PANEL_CARRIER_KEY);
+    if (!saved) return [];
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : [saved];
+    } catch {
+      return [saved];
+    }
+  });
   const [testCdc, setTestCdc] = useState(() =>
     localStorage.getItem(testMode ? TEST_CDC_KEY : PANEL_CDC_KEY) || "TODOS",
   );
@@ -652,10 +668,10 @@ function Dashboard({ testMode = false }) {
   const wakeLockRef = useRef(null);
   const filterDetailsRef = useRef(null);
   const shownRomaneioPopupRef = useRef(new Set());
-  const alertedRomaneioRef = useRef(new Set());
+  const alertedRomaneioRef = useRef(new Map());
   const shownRomaneioCriticalRef = useRef(new Set());
-  const alertedRomaneioCriticalRef = useRef(new Set());
-  const alertedArrivalRef = useRef(new Set());
+  const alertedRomaneioCriticalRef = useRef(new Map());
+  const alertedArrivalRef = useRef(new Map());
   const pageCopy = [
     "Visão geral do pátio",
     "Acompanhe toda a operação em tempo real em um único painel.",
@@ -681,10 +697,10 @@ function Dashboard({ testMode = false }) {
   useEffect(() => {
     const carrierKey = testMode ? TEST_CARRIER_KEY : PANEL_CARRIER_KEY;
     const cdcKey = testMode ? TEST_CDC_KEY : PANEL_CDC_KEY;
-    if (testCarrier) localStorage.setItem(carrierKey, testCarrier);
+    if (testCarriers.length) localStorage.setItem(carrierKey, JSON.stringify(testCarriers));
     else localStorage.removeItem(carrierKey);
     localStorage.setItem(cdcKey, testCdc);
-  }, [testMode, testCarrier, testCdc]);
+  }, [testMode, testCarriers, testCdc]);
   useEffect(() => {
     const restoreWakeLock = async () => {
       if (document.visibilityState !== "visible" || !navigator.wakeLock || !soundEnabled) return;
@@ -874,14 +890,14 @@ function Dashboard({ testMode = false }) {
   );
   const visibleScheduleRows = useMemo(
     () =>
-      !testCarrier
+      !testCarriers.length
           ? []
         : scheduleRows.filter(
             (item) =>
-              (testCarrier === "TODAS" || item.carrier === testCarrier) &&
+              (testCarriers.includes("TODAS") || testCarriers.includes(item.carrier)) &&
               (testCdc === "TODOS" || item.cdc === testCdc),
           ),
-    [scheduleRows, testCarrier, testCdc],
+    [scheduleRows, testCarriers, testCdc],
   );
   const visiblePlateSet = useMemo(
     () => new Set(visibleScheduleRows.map((item) => item.plate)),
@@ -930,29 +946,46 @@ function Dashboard({ testMode = false }) {
     [query, visibleScheduleRows, allDrivers, scheduleRows.length],
   );
   const liveDocks = useMemo(
-    () =>
+    () => {
+      if (testCdc === "TODOS") return {};
+      return (
       Object.fromEntries(
         displayActiveDrivers
           .filter(
-            (d) =>
+            (d) => {
+              const scheduledCdc = scheduleRows.find(
+                (item) => item.plate === d.plate && (!d.programDate || item.date === d.programDate),
+              )?.cdc;
+              const belongsToSelectedCdc =
+                normalizeText(d.cdc || scheduledCdc) === normalizeText(testCdc);
+              return belongsToSelectedCdc &&
               (d.status === "Endocado" ||
                 d.status === "Aguardando documentação" ||
                 d.status === "Aguardando liberação de saída") &&
-              d.dockId,
+              d.dockId;
+            },
           )
           .map((d) => [d.dockId, d]),
-      ),
-    [displayActiveDrivers],
+      )
+      );
+    },
+    [displayActiveDrivers, scheduleRows, testCdc],
   );
   const waiting = displayActiveDrivers.filter((d) => d.status === "Aguardando").length;
   const documentationWaiting = displayActiveDrivers.filter(
     (d) => d.status === "Aguardando documentação",
   );
-  const docked = displayActiveDrivers.filter((d) => d.status === "Endocado").length;
+  const docked = Object.keys(liveDocks).length;
   const released = displayAllDrivers.filter(
     (d) => d.status === "Veículo liberado",
   ).length;
-  const operationalDocks = testDocks;
+  const operationalDocks = useMemo(
+    () => testDocks.map((dock) => ({
+      ...dock,
+      blocked: testCdc === "GU" && dock.id === "58",
+    })),
+    [testCdc],
+  );
   const availableDocks = operationalDocks.filter(
     (d) => !d.blocked && !liveDocks[d.id],
   );
@@ -1250,6 +1283,20 @@ function Dashboard({ testMode = false }) {
     setSoundEnabled(true);
     setSoundPromptOpen(false);
   };
+  const disableSounds = async () => {
+    setSoundEnabled(false);
+    try {
+      await soundContextRef.current?.suspend();
+      await wakeLockRef.current?.release?.();
+    } catch {
+      // O painel continua operando normalmente se o navegador já tiver encerrado o áudio.
+    }
+    wakeLockRef.current = null;
+  };
+  const toggleSounds = () => {
+    if (soundEnabled) void disableSounds();
+    else void enableSounds();
+  };
   useEffect(() => {
     const overdueRomaneio = displayActiveDrivers.filter((driver) => {
       if (driver.status !== "Aguardando documentação") return false;
@@ -1301,13 +1348,16 @@ function Dashboard({ testMode = false }) {
         plates: newPopupRomaneio.map((driver) => driver.plate).join(", "),
       });
     }
+    const fiveMinutes = 5 * 60000;
+    const isDue = (registry, key) =>
+      !registry.current.has(key) || now - registry.current.get(key) >= fiveMinutes;
     const newRomaneio = soundEnabled ? overdueRomaneio.filter(
       (driver) =>
         !criticalRomaneio.some((critical) => critical.plate === driver.plate) &&
-        !alertedRomaneioRef.current.has(driver.plate),
+        isDue(alertedRomaneioRef, driver.plate),
     ) : [];
     if (newRomaneio.length) {
-      newRomaneio.forEach((driver) => alertedRomaneioRef.current.add(driver.plate));
+      newRomaneio.forEach((driver) => alertedRomaneioRef.current.set(driver.plate, now));
       playAlert("romaneio");
     }
     const newCriticalPopup = criticalRomaneio.filter(
@@ -1324,17 +1374,17 @@ function Dashboard({ testMode = false }) {
     }
     const newCriticalSound = soundEnabled
       ? criticalRomaneio.filter(
-          (driver) => !alertedRomaneioCriticalRef.current.has(driver.plate),
+          (driver) => isDue(alertedRomaneioCriticalRef, driver.plate),
         )
       : [];
     if (newCriticalSound.length) {
-      newCriticalSound.forEach((driver) => alertedRomaneioCriticalRef.current.add(driver.plate));
+      newCriticalSound.forEach((driver) => alertedRomaneioCriticalRef.current.set(driver.plate, now));
       playAlert("romaneioCritico");
     }
     const newArrivalDelays = soundEnabled ? arrivalCriticalRows.filter((item) => {
       const key = `${item.date}-${item.plate}`;
-      if (alertedArrivalRef.current.has(key)) return false;
-      alertedArrivalRef.current.add(key);
+      if (!isDue(alertedArrivalRef, key)) return false;
+      alertedArrivalRef.current.set(key, now);
       return true;
     }) : [];
     if (newArrivalDelays.length) playAlert("chegada");
@@ -1365,7 +1415,7 @@ function Dashboard({ testMode = false }) {
         { merge: true },
       );
       setScheduleLink(savedLink);
-      setTestCarrier("");
+      setTestCarriers([]);
       setTestCdc("TODOS");
     } catch (error) {
       setScheduleError(error.message || "Não foi possível salvar o link.");
@@ -1482,9 +1532,11 @@ function Dashboard({ testMode = false }) {
         <div className="test-header-actions">
           <button
             className={`sound-toggle ${soundEnabled ? "active" : ""}`}
-            onClick={enableSounds}
+            onClick={toggleSounds}
+            aria-pressed={soundEnabled}
+            title={soundEnabled ? "Clique para desativar os alertas sonoros" : "Clique para ativar os alertas sonoros"}
           >
-            {soundEnabled ? "🔊 Alertas sonoros ativos" : "🔇 Ativar alertas sonoros"}
+            {soundEnabled ? "🔊 Desativar alertas sonoros" : "🔇 Ativar alertas sonoros"}
           </button>
           {testMode ? <span className="test-mode-badge">AMBIENTE DE TESTE</span> : null}
           {!testMode ? (
@@ -1637,17 +1689,37 @@ function Dashboard({ testMode = false }) {
               <div className="accompaniment-actions">
                 <details className="test-filters" ref={filterDetailsRef}>
                     <summary>
-                      {testCarrier ? `Transportadora • ${testCarrier === "TODAS" ? "Todas" : testCarrier}` : "Selecionar transportadora"}{testCdc !== "TODOS" ? ` • ${testCdc}` : ""}
+                      {testCarriers.length
+                        ? `Transportadoras • ${testCarriers.includes("TODAS") ? "Todas" : testCarriers.length === 1 ? testCarriers[0] : `${testCarriers.length} selecionadas`}`
+                        : "Selecionar transportadora"}{testCdc !== "TODOS" ? ` • ${testCdc}` : ""}
                     </summary>
                     <div className="test-filter-fields">
-                      <label>
-                        Transportadora
-                        <select value={testCarrier} onChange={(event) => setTestCarrier(event.target.value)}>
-                          <option value="">Selecione...</option>
-                          <option value="TODAS">Todas as transportadoras</option>
-                          {carrierOptions.map((carrier) => <option key={carrier} value={carrier}>{carrier}</option>)}
-                        </select>
-                      </label>
+                      <fieldset className="carrier-multi-filter">
+                        <legend>Transportadoras</legend>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={testCarriers.includes("TODAS")}
+                            onChange={(event) => setTestCarriers(event.target.checked ? ["TODAS"] : [])}
+                          />
+                          Todas as transportadoras
+                        </label>
+                        {carrierOptions.map((carrier) => (
+                          <label key={carrier}>
+                            <input
+                              type="checkbox"
+                              checked={testCarriers.includes(carrier)}
+                              onChange={(event) => setTestCarriers((current) => {
+                                const withoutAll = current.filter((item) => item !== "TODAS");
+                                return event.target.checked
+                                  ? [...withoutAll, carrier]
+                                  : withoutAll.filter((item) => item !== carrier);
+                              })}
+                            />
+                            {carrier}
+                          </label>
+                        ))}
+                      </fieldset>
                       <label>
                         CDC
                         <select value={testCdc} onChange={(event) => setTestCdc(event.target.value)}>
@@ -1770,7 +1842,7 @@ function Dashboard({ testMode = false }) {
                   ) : (
                     <tr>
                       <td colSpan="8" className="empty-row">
-                        {!testCarrier
+                        {!testCarriers.length
                           ? "Selecione uma transportadora no filtro para exibir o acompanhamento"
                           : "Nenhum veículo na programação vigente"}
                       </td>
@@ -1807,7 +1879,7 @@ function Dashboard({ testMode = false }) {
                 <div><b>{released}</b><span>liberados hoje</span></div>
               </div>
             </div>
-            {testCarrier ? (
+            {testCarriers.length ? (
               <section className="test-side-dashboard" aria-label="Indicadores de chegada">
                 <div className="test-side-title">
                   <div>
@@ -1901,13 +1973,13 @@ function Dashboard({ testMode = false }) {
                 <small>Os indicadores, níveis de atraso e gráfico serão exibidos após a seleção.</small>
               </div>
             )}
-            <div className="alert">
+            {testCdc === "GU" ? <div className="alert">
               <AlertTriangle size={18} />
               <div>
                 <b>Doca 58 interditada</b>
                 <span>Posição indisponível para a operação.</span>
               </div>
-            </div>
+            </div> : null}
           </aside>
         </section>
       ) : null}
@@ -1916,6 +1988,7 @@ function Dashboard({ testMode = false }) {
           <DockMap
             liveDocks={liveDocks}
             dockList={operationalDocks}
+            selectedCdc={testCdc === "TODOS" ? "" : testCdc}
             expanded={false}
             collapsed={mapCollapsed}
             onToggle={() => setMapCollapsed((current) => !current)}
@@ -1925,6 +1998,7 @@ function Dashboard({ testMode = false }) {
             <DockMap
               liveDocks={liveDocks}
               dockList={operationalDocks}
+              selectedCdc={testCdc === "TODOS" ? "" : testCdc}
               expanded
               onClose={() => setMapOpen(false)}
             />
@@ -1963,7 +2037,7 @@ function Dashboard({ testMode = false }) {
             <h2 id="wave-modal-title">Movimento de chegadas • 22h às 6h</h2>
             <p className="wave-modal-description">Comparativo por hora entre os veículos programados e os registros de chegada ao CDC.</p>
             <div className="wave-management-scope">
-              <span>TRANSPORTADORA <b>{testCarrier === "TODAS" ? "Todas as transportadoras" : testCarrier}</b></span>
+              <span>TRANSPORTADORAS <b>{testCarriers.includes("TODAS") ? "Todas" : testCarriers.join(", ")}</b></span>
               <span>CDC <b>{testCdc === "TODOS" ? "Todos da programação" : testCdc}</b></span>
               <span>DATA <b>{scheduleReferenceDate || "—"}</b></span>
             </div>
@@ -2270,6 +2344,8 @@ function DriverPortal() {
         const payload = {
           plate: programmed.plate,
           route: (programmed.route || route).toUpperCase(),
+          carrier: programmed.carrier || current?.carrier || "",
+          cdc: programmed.cdc || current?.cdc || "",
           programDate: programmed.date,
           status: statuses[stage.key],
           location: locations[stage.key],
@@ -2297,6 +2373,9 @@ function DriverPortal() {
         transaction.set(movementRef, {
           plate: programmed.plate,
           route: payload.route,
+          carrier: payload.carrier,
+          cdc: payload.cdc,
+          dockId: payload.dockId,
           programDate: programmed.date,
           stage: stage.label,
           value,
@@ -2364,7 +2443,7 @@ function DriverPortal() {
           <>
             <div className="driver-identification">
               <strong>{programmed.plate}</strong>
-              <span>{programmed.route || route} • Programação {programmed.date}</span>
+              <span>{programmed.route || route} • {programmed.cdc || "CDC não informado"} • Programação {programmed.date}</span>
               <button onClick={changePlate}>
                 Trocar placa
               </button>
@@ -2383,7 +2462,9 @@ function DriverPortal() {
                     Número da doca, se já estiver nela
                     <select value={dock} onChange={(e) => setDock(e.target.value)}>
                       <option value="">Selecione a doca</option>
-                      {driverDockOptions.map((dockId) => (
+                      {driverDockOptions
+                        .filter((dockId) => !(programmed.cdc === "GU" && dockId === "58"))
+                        .map((dockId) => (
                         <option key={dockId} value={dockId}>{dockId}</option>
                       ))}
                     </select>
