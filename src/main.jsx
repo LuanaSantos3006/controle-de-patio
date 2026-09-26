@@ -119,6 +119,13 @@ const driverStages = [
     timestamp: "cargoFinishedAt",
   },
   {
+    key: "lacrado",
+    label: "Veículo lacrado",
+    waiting: "aguardando lacrar",
+    complete: "veículo lacrado",
+    timestamp: "sealedAt",
+  },
+  {
     key: "romaneio",
     label: "Romaneio",
     waiting: "aguardando romaneio",
@@ -153,6 +160,12 @@ const driverStageHelp = {
     complete: "Sim, terminou",
     hint: "Avance quando a carga ou descarga estiver finalizada.",
   },
+  lacrado: {
+    question: "O veículo já foi lacrado?",
+    waiting: "Aguardando lacrar",
+    complete: "Veículo lacrado",
+    hint: "Confirme somente após a instalação e conferência do lacre.",
+  },
   romaneio: {
     question: "Você recebeu o romaneio?",
     waiting: "Ainda não recebi",
@@ -179,9 +192,13 @@ const stageValue = (driver, key) => {
     if (driver.cargoFinishedAt) return "finalizado";
     if (driver.dockedAt) return "aguardando carregamento";
   }
+  if (key === "lacrado") {
+    if (driver.sealedAt) return "veículo lacrado";
+    if (driver.cargoFinishedAt) return "aguardando lacrar";
+  }
   if (key === "romaneio") {
     if (driver.documentationReceivedAt) return "romaneio recebido";
-    if (driver.cargoFinishedAt) return "aguardando romaneio";
+    if (driver.sealedAt) return "aguardando romaneio";
   }
   if (key === "saida") {
     if (driver.releasedAt) return "saída liberada";
@@ -210,12 +227,22 @@ const operationalProgress = (driver) => {
       color: "orange",
     };
   if (
-    driver.cargoFinishedAt ||
+    driver.sealedAt ||
     driver.status === "Aguardando documentação" ||
+    stageValue(driver, "lacrado") === "veículo lacrado"
+  )
+    return {
+      label: "Veículo lacrado • aguardando romaneio",
+      percent: 78,
+      color: "orange",
+    };
+  if (
+    driver.cargoFinishedAt ||
+    driver.status === "Aguardando lacre" ||
     stageValue(driver, "carregamento") === "finalizado"
   )
     return {
-      label: "Carregado • aguardando romaneio",
+      label: "Carregado • aguardando lacrar",
       percent: 70,
       color: "orange",
     };
@@ -315,6 +342,7 @@ const minutesInCurrentStatus = (driver, currentTime = Date.now()) => {
     timestampMillis(driver.arrivalAt) || 0,
     timestampMillis(driver.dockedAt) || 0,
     timestampMillis(driver.cargoFinishedAt) || 0,
+    timestampMillis(driver.sealedAt) || 0,
     timestampMillis(driver.documentationReceivedAt) || 0,
     timestampMillis(driver.releasedAt) || 0,
     ...progressTimes,
@@ -593,6 +621,9 @@ function DockMap({ liveDocks, dockList = docks, selectedCdc, expanded, collapsed
                   <b>{active.plate}</b>
                   <span>Rota {active.route || "não informada"}</span>
                   {active.carrier ? <span>{active.carrier}</span> : null}
+                  {active.status === "Aguardando lacre" ? (
+                    <span>Carregado • aguardando lacrar</span>
+                  ) : null}
                   {active.status === "Aguardando documentação" ? (
                     <span>Aguardando romaneio</span>
                   ) : null}
@@ -960,6 +991,7 @@ function Dashboard({ testMode = false }) {
                 normalizeText(d.cdc || scheduledCdc) === normalizeText(testCdc);
               return belongsToSelectedCdc &&
               (d.status === "Endocado" ||
+                d.status === "Aguardando lacre" ||
                 d.status === "Aguardando documentação" ||
                 d.status === "Aguardando liberação de saída") &&
               d.dockId;
@@ -1301,21 +1333,21 @@ function Dashboard({ testMode = false }) {
     const overdueRomaneio = displayActiveDrivers.filter((driver) => {
       if (driver.status !== "Aguardando documentação") return false;
       const startedAt =
-        timestampMillis(driver.cargoFinishedAt) ||
-        timestampMillis(driver.progress?.carregamento?.at);
+        timestampMillis(driver.sealedAt) ||
+        timestampMillis(driver.progress?.lacrado?.at);
       return startedAt && now - startedAt > 10 * 60000;
     });
     const criticalRomaneio = overdueRomaneio.filter((driver) => {
       const startedAt =
-        timestampMillis(driver.cargoFinishedAt) ||
-        timestampMillis(driver.progress?.carregamento?.at);
+        timestampMillis(driver.sealedAt) ||
+        timestampMillis(driver.progress?.lacrado?.at);
       return startedAt && now - startedAt > 30 * 60000;
     });
     const registerRomaneioAlert = (driver, threshold) => {
       if (!db) return;
       const startedAt =
-        timestampMillis(driver.cargoFinishedAt) ||
-        timestampMillis(driver.progress?.carregamento?.at);
+        timestampMillis(driver.sealedAt) ||
+        timestampMillis(driver.progress?.lacrado?.at);
       const scheduleItem = visibleScheduleRows.find((item) => item.plate === driver.plate);
       const programDate = driver.programDate || scheduleItem?.date || scheduleReferenceDate || "turno";
       const alertId = `romaneio_${programDate}_${driver.plate}_${threshold}`.replace(/[^a-zA-Z0-9_-]/g, "-");
@@ -1331,7 +1363,7 @@ function Dashboard({ testMode = false }) {
           dockId: driver.dockId || null,
           programDate,
           waitingSince:
-            driver.cargoFinishedAt || driver.progress?.carregamento?.at || null,
+            driver.sealedAt || driver.progress?.lacrado?.at || null,
           createdAt: startedAt ? new Date(startedAt + threshold * 60000) : serverTimestamp(),
         },
         { merge: true },
@@ -2308,6 +2340,7 @@ function DriverPortal() {
         if (stageIndex === 0 && !current) {
           reset.dockedAt = null;
           reset.cargoFinishedAt = null;
+          reset.sealedAt = null;
           reset.documentationReceivedAt = null;
           reset.releasedAt = null;
         }
@@ -2315,7 +2348,9 @@ function DriverPortal() {
           chegadaCdc: "Aguardando",
           patio: value === "endocado" ? "Endocado" : "Aguardando",
           carregamento:
-            value === "finalizado" ? "Aguardando documentação" : "Endocado",
+            value === "finalizado" ? "Aguardando lacre" : "Endocado",
+          lacrado:
+            value === "veículo lacrado" ? "Aguardando documentação" : "Aguardando lacre",
           romaneio:
             value === "romaneio recebido"
               ? "Aguardando liberação de saída"
@@ -2330,8 +2365,12 @@ function DriverPortal() {
           patio: value === "endocado" ? `Endocado — Doca ${dock}` : "Pátio — aguardando doca",
           carregamento:
             value === "finalizado"
-              ? `Doca ${current?.dockId || dock} — aguardando romaneio`
+              ? `Doca ${current?.dockId || dock} — aguardando lacrar`
               : `Doca ${current?.dockId || dock} — aguardando carregamento`,
+          lacrado:
+            value === "veículo lacrado"
+              ? `Doca ${current?.dockId || dock} — aguardando romaneio`
+              : `Doca ${current?.dockId || dock} — aguardando lacrar`,
           romaneio:
             value === "romaneio recebido"
               ? "Romaneio recebido — aguardando liberação de saída"
