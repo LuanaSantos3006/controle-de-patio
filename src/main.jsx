@@ -982,7 +982,7 @@ function Dashboard({ testMode = false }) {
   const operationalDocks = useMemo(
     () => testDocks.map((dock) => ({
       ...dock,
-      blocked: testCdc === "GU" && dock.id === "58",
+      blocked: testCdc === "SP8" && dock.id === "58",
     })),
     [testCdc],
   );
@@ -1973,7 +1973,7 @@ function Dashboard({ testMode = false }) {
                 <small>Os indicadores, níveis de atraso e gráfico serão exibidos após a seleção.</small>
               </div>
             )}
-            {testCdc === "GU" ? <div className="alert">
+            {testCdc === "SP8" ? <div className="alert">
               <AlertTriangle size={18} />
               <div>
                 <b>Doca 58 interditada</b>
@@ -2463,7 +2463,7 @@ function DriverPortal() {
                     <select value={dock} onChange={(e) => setDock(e.target.value)}>
                       <option value="">Selecione a doca</option>
                       {driverDockOptions
-                        .filter((dockId) => !(programmed.cdc === "GU" && dockId === "58"))
+                        .filter((dockId) => !(programmed.cdc === "SP8" && dockId === "58"))
                         .map((dockId) => (
                         <option key={dockId} value={dockId}>{dockId}</option>
                       ))}
