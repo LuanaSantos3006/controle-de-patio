@@ -1403,10 +1403,10 @@ function Dashboard({ testMode = false }) {
     const newRomaneio = soundEnabled ? overdueRomaneio.filter(
       (driver) =>
         !criticalRomaneio.some((critical) => critical.plate === driver.plate) &&
-        !soundHistoryRef.current.has(soundKey("romaneio", driver)),
+        !soundHistoryRef.current.has(soundKey("romaneio-10min", driver)),
     ) : [];
     if (newRomaneio.length) {
-      newRomaneio.forEach((driver) => markSounded(soundKey("romaneio", driver)));
+      newRomaneio.forEach((driver) => markSounded(soundKey("romaneio-10min", driver)));
       playAlert("romaneio");
     }
     const newCriticalPopup = criticalRomaneio.filter(
@@ -1423,11 +1423,11 @@ function Dashboard({ testMode = false }) {
     }
     const newCriticalSound = soundEnabled
       ? criticalRomaneio.filter(
-          (driver) => !soundHistoryRef.current.has(soundKey("romaneio", driver)),
+          (driver) => !soundHistoryRef.current.has(soundKey("romaneio-30min", driver)),
         )
       : [];
     if (newCriticalSound.length) {
-      newCriticalSound.forEach((driver) => markSounded(soundKey("romaneio", driver)));
+      newCriticalSound.forEach((driver) => markSounded(soundKey("romaneio-30min", driver)));
       playAlert("romaneioCritico");
     }
     const newArrivalDelays = soundEnabled ? arrivalCriticalRows.filter((item) => {
