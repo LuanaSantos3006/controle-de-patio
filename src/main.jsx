@@ -371,6 +371,7 @@ const PANEL_CARRIER_KEY = "controle-patio-transportadora";
 const PANEL_CDC_KEY = "controle-patio-cdc";
 const PANEL_DEVICE_KEY = "controle-patio-painel-dispositivo";
 const DRIVER_SESSION_KEY = "controle-patio-motorista-atual";
+const SOUND_HISTORY_KEY = "controle-patio-alertas-sonoros-enviados";
 
 const panelDeviceId = () => {
   if (typeof window === "undefined") return "painel";
@@ -699,10 +700,16 @@ function Dashboard({ testMode = false }) {
   const wakeLockRef = useRef(null);
   const filterDetailsRef = useRef(null);
   const shownRomaneioPopupRef = useRef(new Set());
-  const alertedRomaneioRef = useRef(new Map());
   const shownRomaneioCriticalRef = useRef(new Set());
-  const alertedRomaneioCriticalRef = useRef(new Map());
-  const alertedArrivalRef = useRef(new Map());
+  const soundHistoryRef = useRef(new Set((() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = JSON.parse(localStorage.getItem(SOUND_HISTORY_KEY) || "[]");
+      return Array.isArray(saved) ? saved : [];
+    } catch {
+      return [];
+    }
+  })()));
   const pageCopy = [
     "Visão geral do pátio",
     "Acompanhe toda a operação em tempo real em um único painel.",
@@ -1380,16 +1387,26 @@ function Dashboard({ testMode = false }) {
         plates: newPopupRomaneio.map((driver) => driver.plate).join(", "),
       });
     }
-    const fiveMinutes = 5 * 60000;
-    const isDue = (registry, key) =>
-      !registry.current.has(key) || now - registry.current.get(key) >= fiveMinutes;
+    const soundKey = (type, driverOrItem) =>
+      `${type}:${driverOrItem.programDate || driverOrItem.date || scheduleReferenceDate || "turno"}:${driverOrItem.plate}`;
+    const markSounded = (key) => {
+      soundHistoryRef.current.add(key);
+      try {
+        localStorage.setItem(
+          SOUND_HISTORY_KEY,
+          JSON.stringify([...soundHistoryRef.current].slice(-500)),
+        );
+      } catch {
+        // O alerta continua válido mesmo se o navegador bloquear o armazenamento local.
+      }
+    };
     const newRomaneio = soundEnabled ? overdueRomaneio.filter(
       (driver) =>
         !criticalRomaneio.some((critical) => critical.plate === driver.plate) &&
-        isDue(alertedRomaneioRef, driver.plate),
+        !soundHistoryRef.current.has(soundKey("romaneio", driver)),
     ) : [];
     if (newRomaneio.length) {
-      newRomaneio.forEach((driver) => alertedRomaneioRef.current.set(driver.plate, now));
+      newRomaneio.forEach((driver) => markSounded(soundKey("romaneio", driver)));
       playAlert("romaneio");
     }
     const newCriticalPopup = criticalRomaneio.filter(
@@ -1406,17 +1423,17 @@ function Dashboard({ testMode = false }) {
     }
     const newCriticalSound = soundEnabled
       ? criticalRomaneio.filter(
-          (driver) => isDue(alertedRomaneioCriticalRef, driver.plate),
+          (driver) => !soundHistoryRef.current.has(soundKey("romaneio", driver)),
         )
       : [];
     if (newCriticalSound.length) {
-      newCriticalSound.forEach((driver) => alertedRomaneioCriticalRef.current.set(driver.plate, now));
+      newCriticalSound.forEach((driver) => markSounded(soundKey("romaneio", driver)));
       playAlert("romaneioCritico");
     }
     const newArrivalDelays = soundEnabled ? arrivalCriticalRows.filter((item) => {
-      const key = `${item.date}-${item.plate}`;
-      if (!isDue(alertedArrivalRef, key)) return false;
-      alertedArrivalRef.current.set(key, now);
+      const key = soundKey("chegada", item);
+      if (soundHistoryRef.current.has(key)) return false;
+      markSounded(key);
       return true;
     }) : [];
     if (newArrivalDelays.length) playAlert("chegada");
